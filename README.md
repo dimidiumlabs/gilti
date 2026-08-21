@@ -25,7 +25,7 @@ service for Dimidium Labs.
 
 ## Container
 
-A fresh state directory requires one administrator public key:
+A fresh state directory requires an administrator public key:
 
 ```console
 docker build -t gilti:dev .

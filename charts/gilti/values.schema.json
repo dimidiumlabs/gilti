@@ -16,8 +16,7 @@
     "bootstrap": {
       "type": "object",
       "properties": {
-        "existingSecret": { "type": "string" },
-        "key": { "type": "string", "minLength": 1 }
+        "existingSecret": { "type": "string" }
       }
     },
     "cgit": {

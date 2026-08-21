@@ -8,7 +8,7 @@ uninstalling the release does not delete authoritative Git data.
 ## Bootstrap
 
 A fresh volume requires an existing Secret containing the administrator's SSH
-public key. The default key name is `admin.pub`:
+public key as `admin.pub`:
 
 ```console
 kubectl create secret generic gilti-bootstrap --from-file=admin.pub
@@ -16,9 +16,10 @@ helm upgrade --install gilti . \
   --set bootstrap.existingSecret=gilti-bootstrap
 ```
 
-The key is ignored after successful initialization and the Secret may then be
-removed from values. A partially initialized volume is never overwritten
-automatically.
+Additional `*.pub` entries in the same Secret are committed to `gitolite-admin`
+as additional keys for the same `admin` identity. Bootstrap keys are ignored
+after successful initialization and the Secret may then be removed from values.
+A partially initialized volume is never overwritten automatically.
 
 ## Publishing repositories
 

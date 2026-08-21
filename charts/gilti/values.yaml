@@ -16,7 +16,6 @@ fullnameOverride: ""
 bootstrap:
   # Secret key is needed only while initializing a fresh persistent volume.
   existingSecret: ""
-  key: admin.pub
 
 cgit:
   rootTitle: Gilti

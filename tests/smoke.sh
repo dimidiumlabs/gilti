@@ -24,13 +24,30 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 ssh-keygen -q -t ed25519 -N '' -f "$work/admin"
+ssh-keygen -q -t ed25519 -N '' -f "$work/admin-2"
 ssh-keygen -q -t ed25519 -N '' -f "$work/stranger"
+mkdir "$work/bootstrap"
+cp "$work/admin.pub" "$work/bootstrap/admin.pub"
+cp "$work/admin-2.pub" "$work/bootstrap/admin-2.pub"
 "$engine" volume create "$volume" >/dev/null
+
+printf '%s\n' 'not an SSH key' >"$work/bootstrap/bad.pub"
+if "$engine" run --rm \
+    --cap-drop ALL \
+    --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER \
+    --cap-add SETGID --cap-add SETUID --cap-add SYS_CHROOT \
+    --mount "type=volume,src=$volume,dst=/var/lib/gilti" \
+    --mount "type=bind,src=$work/bootstrap,dst=/run/gilti-bootstrap,readonly" \
+    "$image" init >/dev/null 2>&1; then
+    echo 'initialization accepted a malformed additional key' >&2
+    exit 1
+fi
+rm "$work/bootstrap/bad.pub"
 
 start() {
     key_mount=
     if [ "${1:-with-key}" = with-key ]; then
-        key_mount="--mount type=bind,src=$work/admin.pub,dst=/run/gilti-bootstrap/admin.pub,readonly"
+        key_mount="--mount type=bind,src=$work/bootstrap,dst=/run/gilti-bootstrap,readonly"
     fi
     # shellcheck disable=SC2086
     "$engine" run -d --name "$name" \
@@ -76,6 +93,8 @@ fi
 ssh_opts="-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$work/known_hosts -i $work/admin -p $ssh_port"
 # shellcheck disable=SC2086
 ssh $ssh_opts git@127.0.0.1 info | grep -q 'hello admin'
+ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -i "$work/admin-2" -p "$ssh_port" git@127.0.0.1 info | grep -q 'hello admin'
 
 if ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
     -i "$work/stranger" -p "$ssh_port" git@127.0.0.1 info >/dev/null 2>&1; then
@@ -127,3 +146,5 @@ fingerprint_after=$(ssh-keyscan -p "$ssh_port" 127.0.0.1 2>/dev/null | ssh-keyge
     exit 1
 }
 curl -fsS "http://127.0.0.1:$http_port/" | grep -q 'testing'
+ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+    -i "$work/admin-2" -p "$ssh_port" git@127.0.0.1 info | grep -q 'hello admin'

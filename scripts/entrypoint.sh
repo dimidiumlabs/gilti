@@ -12,7 +12,8 @@ cache_dir=/var/cache/cgit
 git_home=$state/git
 host_key_dir=$state/ssh
 
-admin_key=${GILTI_ADMIN_KEY_FILE:-/run/gilti-bootstrap/admin.pub}
+bootstrap_dir=/run/gilti-bootstrap
+admin_key=${GILTI_ADMIN_KEY_FILE:-$bootstrap_dir/admin.pub}
 
 log() {
     printf 'gilti: %s\n' "$*" >&2
@@ -20,6 +21,41 @@ log() {
 
 run_as_git() {
     su-exec git:git env HOME="$git_home" USER=git LOGNAME=git "$@"
+}
+
+validate_public_key_file() {
+    key_file=$1
+    [ "$(awk 'NF && $1 !~ /^#/ { count++ } END { print count + 0 }' "$key_file")" -eq 1 ] &&
+        ssh-keygen -l -f "$key_file" >/dev/null 2>&1
+}
+
+validate_bootstrap_keys() {
+    [ -r "$admin_key" ] || {
+        log "fresh state requires an admin public key at $admin_key"
+        exit 1
+    }
+    for key_file in "$bootstrap_dir"/*.pub; do
+        [ -e "$key_file" ] || continue
+        validate_public_key_file "$key_file" || {
+            log "bootstrap key $key_file is not exactly one valid SSH public key"
+            exit 1
+        }
+    done
+}
+
+stage_additional_admin_keys() {
+    install -d -m 0750 -o git -g git "$git_home/.gitolite"
+    install -d -m 0750 -o git -g git "$git_home/.gitolite/keydir"
+    install -d -m 0750 -o git -g git "$git_home/.gitolite/logs"
+    count=0
+    for key_file in "$bootstrap_dir"/*.pub; do
+        [ -e "$key_file" ] || continue
+        [ "$key_file" = "$admin_key" ] && continue
+        count=$((count + 1))
+        destination=$git_home/.gitolite/keydir/gilti-bootstrap-$count
+        install -d -m 0750 -o git -g git "$destination"
+        install -m 0644 -o git -g git "$key_file" "$destination/admin.pub"
+    done
 }
 
 prepare_runtime() {
@@ -64,14 +100,8 @@ initialize() {
             exit 1
             ;;
         fresh)
-            [ -r "$admin_key" ] || {
-                log "fresh state requires an admin public key at $admin_key"
-                exit 1
-            }
-            ssh-keygen -l -f "$admin_key" >/dev/null 2>&1 || {
-                log "the bootstrap admin key is not a valid SSH public key"
-                exit 1
-            }
+            validate_bootstrap_keys
+            stage_additional_admin_keys
             log "initializing Gitolite"
             run_as_git gitolite setup -pk "$admin_key"
             ;;

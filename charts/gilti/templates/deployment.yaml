@@ -103,9 +103,6 @@ spec:
           {{- if .Values.bootstrap.existingSecret }}
           secret:
             secretName: {{ .Values.bootstrap.existingSecret }}
-            items:
-              - key: {{ .Values.bootstrap.key }}
-                path: admin.pub
           {{- else }}
           emptyDir: {}
           {{- end }}
