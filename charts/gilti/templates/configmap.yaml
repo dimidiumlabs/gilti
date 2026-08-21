@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2026 Nikolay Govorov
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+{{- range $name, $value := dict "cgit.rootTitle" .Values.cgit.rootTitle "cgit.rootDescription" .Values.cgit.rootDescription "cgit.clonePrefix" .Values.cgit.clonePrefix }}
+{{- if regexMatch "[\\r\\n]" $value }}
+{{- fail (printf "%s must be a single line" $name) }}
+{{- end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gilti.fullname" . }}
+  labels:
+    {{- include "gilti.labels" . | nindent 4 }}
+data:
+  cgitrc: |
+    root-title={{ .Values.cgit.rootTitle }}
+    root-desc={{ .Values.cgit.rootDescription }}
+    virtual-root=/
+    css=/cgit.css
+    logo=/cgit.png
+    favicon=/favicon.ico
+    cache-root=/var/cache/cgit
+    cache-size=1000
+    cache-dynamic-ttl=5
+    cache-repo-ttl=5
+    cache-root-ttl=5
+    cache-scanrc-ttl=1
+    enable-http-clone=0
+    enable-index-owner=1
+    enable-index-links=1
+    enable-commit-graph=1
+    enable-log-filecount=1
+    enable-log-linecount=1
+    enable-tree-linenumbers=1
+    snapshots=
+    remove-suffix=1
+    project-list=/var/lib/gilti/git/projects.list
+    readme=:README.md
+    readme=:README
+    {{- with .Values.cgit.clonePrefix }}
+    clone-prefix={{ . }}
+    {{- end }}
+    scan-path=/var/lib/gilti/git/repositories

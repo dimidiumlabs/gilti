@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Nikolay Govorov
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "gilti.fullname" . }}-ssh
+  labels:
+    {{- include "gilti.labels" . | nindent 4 }}
+  {{- with .Values.sshService.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.sshService.type }}
+  {{- with .Values.sshService.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+  selector:
+    {{- include "gilti.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: ssh
+      port: {{ .Values.sshService.port }}
+      targetPort: ssh
+      protocol: TCP

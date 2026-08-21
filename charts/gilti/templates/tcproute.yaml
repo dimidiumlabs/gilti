@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Nikolay Govorov
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+{{- if .Values.sshRoute.enabled }}
+apiVersion: {{ .Values.sshRoute.apiVersion }}
+kind: TCPRoute
+metadata:
+  name: {{ include "gilti.fullname" . }}
+  labels:
+    {{- include "gilti.labels" . | nindent 4 }}
+spec:
+  {{- with .Values.sshRoute.parentRefs }}
+  parentRefs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - backendRefs:
+        - name: {{ include "gilti.fullname" . }}-ssh
+          port: {{ .Values.sshService.port }}
+{{- end }}

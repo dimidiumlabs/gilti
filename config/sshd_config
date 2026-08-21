@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 Nikolay Govorov
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+Port 2222
+ListenAddress 0.0.0.0
+AddressFamily any
+HostKey /var/lib/gilti/ssh/ssh_host_ed25519_key
+PidFile /run/gilti/sshd.pid
+
+AllowUsers git
+AuthenticationMethods publickey
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+PermitRootLogin no
+StrictModes yes
+AuthorizedKeysFile .ssh/authorized_keys
+
+DisableForwarding yes
+AllowAgentForwarding no
+AllowTcpForwarding no
+GatewayPorts no
+PermitTunnel no
+PermitTTY no
+PermitUserEnvironment no
+X11Forwarding no
+
+LogLevel INFO
+PrintMotd no
+UseDNS no

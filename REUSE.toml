@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 Nikolay Govorov
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version = 1
+
+[[annotations]]
+path = [
+  "charts/gilti/templates/*",
+  "charts/gilti/values.schema.json",
+  "mise.lock",
+]
+SPDX-FileCopyrightText = "2026 Nikolay Govorov"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = [
+  "README.md",
+  "charts/gilti/README.md",
+]
+SPDX-FileCopyrightText = "2026 Nikolay Govorov"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = [
+  "CLA.md",
+]
+SPDX-FileCopyrightText = "2026 Nikolay Govorov"
+SPDX-License-Identifier = "CC-BY-3.0"

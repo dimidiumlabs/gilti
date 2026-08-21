@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: 2026 Nikolay Govorov
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/dimidiumlabs/gilti
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+bootstrap:
+  # Secret key is needed only while initializing a fresh persistent volume.
+  existingSecret: ""
+  key: admin.pub
+
+cgit:
+  rootTitle: Gilti
+  rootDescription: A tiny Git server
+  clonePrefix: ""
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  retain: true
+  accessModes: [ReadWriteOnce]
+  size: 10Gi
+  storageClass: ""
+
+httpService:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+
+sshService:
+  type: ClusterIP
+  port: 22
+  annotations: {}
+  externalTrafficPolicy: ""
+
+httpRoute:
+  enabled: false
+  hostnames: []
+  parentRefs: []
+
+sshRoute:
+  enabled: false
+  apiVersion: gateway.networking.k8s.io/v1
+  parentRefs: []
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+# OpenSSH keeps a root master and drops to UID/GID 10000 for Git sessions.
+securityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+    add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID, SYS_CHROOT]
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 1Gi
+
+runtime:
+  runSizeLimit: 32Mi
+  cacheSizeLimit: 1Gi
+  tmpSizeLimit: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+terminationGracePeriodSeconds: 30
