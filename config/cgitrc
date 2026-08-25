@@ -26,7 +26,6 @@ enable-tree-linenumbers=1
 snapshots=
 
 remove-suffix=1
-project-list=/var/lib/gilti/git/projects.list
 readme=:README.md
 readme=:README
 scan-path=/var/lib/gilti/git/repositories

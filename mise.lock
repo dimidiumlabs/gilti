@@ -33,8 +33,12 @@ checksum = "sha256:bd0528a18d8a22431426eab3138a9479dfae00350719ac4150e81b123bfd6
 url = "https://get.helm.sh/helm-v4.1.1-windows-amd64.tar.gz"
 
 [[tools.rust]]
-version = "1.87.0"
+version = "1.97.1"
 backend = "core:rust"
+
+[tools.rust.options]
+components = "clippy,llvm-tools-preview,rustfmt"
+profile = "minimal"
 
 [[tools.shellcheck]]
 version = "0.11.0"

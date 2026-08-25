@@ -5,7 +5,7 @@ Port 2222
 ListenAddress 0.0.0.0
 AddressFamily any
 HostKey /var/lib/gilti/ssh/ssh_host_ed25519_key
-PidFile /run/gilti/sshd.pid
+PidFile /run/gilti/ssh/sshd.pid
 
 AllowUsers git
 AuthenticationMethods publickey
@@ -15,7 +15,9 @@ KbdInteractiveAuthentication no
 PermitEmptyPasswords no
 PermitRootLogin no
 StrictModes yes
-AuthorizedKeysFile .ssh/authorized_keys
+AuthorizedKeysFile /run/gilti/ssh/authorized_keys
+ForceCommand /usr/local/bin/gilti-ssh
+AcceptEnv GIT_PROTOCOL
 
 DisableForwarding yes
 AllowAgentForwarding no
@@ -24,6 +26,7 @@ GatewayPorts no
 PermitTunnel no
 PermitTTY no
 PermitUserEnvironment no
+PermitUserRC no
 X11Forwarding no
 
 LogLevel INFO

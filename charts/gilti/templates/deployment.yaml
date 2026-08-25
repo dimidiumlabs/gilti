@@ -56,13 +56,13 @@ spec:
               protocol: TCP
           startupProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: http
             failureThreshold: 60
             periodSeconds: 5
           readinessProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: http
             periodSeconds: 10
           livenessProbe:
@@ -79,8 +79,9 @@ spec:
               mountPath: /etc/cgitrc
               subPath: cgitrc
               readOnly: true
-            - name: bootstrap
-              mountPath: /run/gilti-bootstrap
+            - name: config
+              mountPath: /etc/gilti/authorized_keys
+              subPath: authorized_keys
               readOnly: true
             - name: run
               mountPath: /run
@@ -99,13 +100,6 @@ spec:
         - name: config
           configMap:
             name: {{ include "gilti.fullname" . }}
-        - name: bootstrap
-          {{- if .Values.bootstrap.existingSecret }}
-          secret:
-            secretName: {{ .Values.bootstrap.existingSecret }}
-          {{- else }}
-          emptyDir: {}
-          {{- end }}
         - name: run
           emptyDir:
             sizeLimit: {{ .Values.runtime.runSizeLimit }}

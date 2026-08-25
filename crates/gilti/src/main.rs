@@ -8,7 +8,7 @@ const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:8080";
 const CGIT: &str = "/usr/share/webapps/cgit/cgit.cgi";
 const CGIT_CONFIG: &str = "/etc/cgitrc";
 const GIT_HOME: &str = "/var/lib/gilti/git";
-const RUN_DIR: &str = "/run/gilti";
+const RUN_DIR: &str = "/run/gilti/http";
 
 const CGIT_CSS: &str = "/usr/share/webapps/cgit/cgit.css";
 const CGIT_LOGO: &str = "/usr/share/webapps/cgit/cgit.png";
@@ -41,10 +41,7 @@ impl Drop for CgitConfig {
     fn drop(&mut self) {
         match std::fs::remove_file(&self.path) {
             Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
-                eprintln!(
-                    "gilti-httpd: cannot remove {}: {error}",
-                    self.path.display()
-                );
+                eprintln!("gilti: cannot remove {}: {error}", self.path.display());
             }
             _ => {}
         }
@@ -90,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(listen_addr).await?;
-    eprintln!("gilti-httpd: listening on {listen_addr}");
+    eprintln!("gilti: listening on {listen_addr}");
 
     axum::serve(
         listener,
@@ -134,7 +131,7 @@ fn static_file(path: &str, content_type: &'static str) -> axum::response::Respon
     match std::fs::read(path) {
         Ok(bytes) => response(axum::http::StatusCode::OK, content_type, bytes),
         Err(error) => {
-            eprintln!("gilti-httpd: cannot read {path}: {error}");
+            eprintln!("gilti: cannot read {path}: {error}");
             plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n")
         }
     }
@@ -153,7 +150,7 @@ async fn proxy_to_cgit(
     match tower::ServiceExt::oneshot(state.cgit.clone(), request).await {
         Ok(response) => response,
         Err(error) => {
-            eprintln!("gilti-httpd: cgit request failed: {error}");
+            eprintln!("gilti: cgit request failed: {error}");
             plain_response(axum::http::StatusCode::BAD_GATEWAY, "bad gateway\n")
         }
     }

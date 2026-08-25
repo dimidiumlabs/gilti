@@ -13,9 +13,9 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-bootstrap:
-  # Secret key is needed only while initializing a fresh persistent volume.
-  existingSecret: ""
+ssh:
+  # Every listed key has read/write access to every repository.
+  authorizedKeys: []
 
 cgit:
   rootTitle: Gilti

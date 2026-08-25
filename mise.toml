@@ -8,7 +8,11 @@ experimental = true
 
 [tools]
 helm = "4.1.1"
-rust = "1.87.0"
+rust = { version = "1.97.1", profile = "minimal", components = [
+  "clippy",
+  "llvm-tools-preview",
+  "rustfmt",
+] }
 shellcheck = "0.11.0"
 
 [task_config]

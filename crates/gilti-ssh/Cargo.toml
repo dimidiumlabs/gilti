@@ -2,19 +2,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 [package]
-name = "gilti"
-description = "Gilti web-server and daemon"
+name = "gilti-ssh"
+description = "Restricted SSH command for Gilti Git access"
 version.workspace = true
 
+repository.workspace = true
+homepage.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-homepage.workspace = true
-repository.workspace = true
 
 [dependencies]
-axum.workspace = true
-percent-encoding.workspace = true
-tokio.workspace = true
-tower.workspace = true
+libc.workspace = true

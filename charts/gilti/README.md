@@ -1,41 +1,39 @@
 # Gilti Helm chart
 
 The chart installs one Gilti replica backed by one persistent volume. Upgrades
-use `Recreate`: two pods must never write the Gitolite filesystem concurrently.
-The generated PVC carries `helm.sh/resource-policy: keep` by default, so
-uninstalling the release does not delete authoritative Git data.
+use `Recreate`: two pods must never write the repository filesystem
+concurrently. The generated PVC carries `helm.sh/resource-policy: keep` by
+default, so uninstalling the release does not delete authoritative Git data.
 
-## Bootstrap
+## SSH access
 
-A fresh volume requires an existing Secret containing the administrator's SSH
-public key as `admin.pub`:
+Public keys are static chart configuration:
+
+```yaml
+ssh:
+  authorizedKeys:
+    - ssh-ed25519 AAAA... operator@example
+    - ssh-ed25519 AAAA... automation@example
+```
+
+Every configured key has the same permissions: it may fetch, push, and create
+any repository. There are no users, per-repository ACLs, or live key updates.
+Gilti snapshots the configured keys when the pod starts, so a key change takes
+effect after the Deployment rolls out the updated ConfigMap.
+
+Shells, forwarding, tunnels, and arbitrary SSH commands are disabled. A push to
+a missing repository initializes it as a bare repository:
 
 ```console
-kubectl create secret generic gilti-bootstrap --from-file=admin.pub
-helm upgrade --install gilti . \
-  --set bootstrap.existingSecret=gilti-bootstrap
+git remote add origin ssh://git@git.example.test/example
+git push -u origin main
 ```
 
-Additional `*.pub` entries in the same Secret are committed to `gitolite-admin`
-as additional keys for the same `admin` identity. Bootstrap keys are ignored
-after successful initialization and the Secret may then be removed from values.
-A partially initialized volume is never overwritten automatically.
+## Repository visibility
 
-## Publishing repositories
-
-cgit does not implement Gitolite authorization. Gilti therefore reads Gitolite's
-generated `projects.list`; a repository becomes public only when the `gitweb`
-pseudo-user can read it:
-
-```text
-repo example
-    RW+ = alice
-    R   = gitweb
-```
-
-After pushing this configuration to `gitolite-admin`, `example` appears in cgit.
-Repositories not present in `projects.list` are unavailable even through a
-direct cgit URL. Web cloning and snapshots are disabled in the default policy.
+cgit is anonymous and read-only and scans the complete repository directory.
+Consequently every repository available over SSH is also publicly visible over
+HTTP. Web cloning and snapshots are disabled in the default policy.
 
 ## Networking
 
@@ -50,6 +48,9 @@ listener.
 Example for the first Dimidium Labs installation:
 
 ```yaml
+ssh:
+  authorizedKeys:
+    - ssh-ed25519 AAAA... operator@example
 cgit:
   clonePrefix: ssh://git@vcs.dimidiumlabs.io/
 httpRoute:
@@ -68,15 +69,14 @@ sshRoute:
 ```
 
 TLS terminates at the shared Gateway; the chart does not create certificates.
-SSH host keys, Gitolite configuration, repositories, generated authorization,
-and audit logs reside on the persistent volume. Back up and restore that volume
-as a unit.
+Repositories and the SSH host key reside on the persistent volume. Public keys
+are stored in the generated ConfigMap and must be supplied on every deployment.
 
 ## Security context
 
 The Rust HTTP gateway and its cgit children run without privileges. OpenSSH
 intentionally keeps a root master so it can enter the `git` account (UID/GID
-10000). The chart drops
-all capabilities and restores only `CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `SETGID`,
-`SETUID`, and `SYS_CHROOT`. The root filesystem is read-only; state, cache,
-`/run`, and `/tmp` are explicit writable mounts.
+10000). The chart drops all capabilities and restores only `CHOWN`,
+`DAC_OVERRIDE`, `FOWNER`, `SETGID`, `SETUID`, and `SYS_CHROOT`. The root
+filesystem is read-only; state, cache, `/run`, and `/tmp` are explicit writable
+mounts.

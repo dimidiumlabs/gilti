@@ -16,6 +16,7 @@ repository = "https://github.com/dimidiumlabs/gilti"
 
 [workspace.dependencies]
 axum = { version = "0.8.4", default-features = false, features = ["http1", "tokio"] }
+libc = "0.2.172"
 percent-encoding = "2.3.2"
 tokio = { version = "1.44.2", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "signal"] }
 tower = { version = "0.5.2", features = ["util"] }

@@ -6,6 +6,11 @@
 {{- fail (printf "%s must be a single line" $name) }}
 {{- end }}
 {{- end }}
+{{- range $key := .Values.ssh.authorizedKeys }}
+{{- if or (eq $key "") (regexMatch "[\\r\\n]" $key) }}
+{{- fail "ssh.authorizedKeys entries must be non-empty single lines" }}
+{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -35,10 +40,13 @@ data:
     enable-tree-linenumbers=1
     snapshots=
     remove-suffix=1
-    project-list=/var/lib/gilti/git/projects.list
     readme=:README.md
     readme=:README
     {{- with .Values.cgit.clonePrefix }}
     clone-prefix={{ . }}
     {{- end }}
     scan-path=/var/lib/gilti/git/repositories
+  authorized_keys: |
+    {{- range .Values.ssh.authorizedKeys }}
+    {{ . }}
+    {{- end }}

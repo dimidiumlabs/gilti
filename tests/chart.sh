@@ -15,7 +15,7 @@ injected=$(mktemp)
 trap 'rm -f "$rendered" "$invalid" "$injected"' EXIT
 
 helm template gilti "$chart" \
-    --set bootstrap.existingSecret=gilti-bootstrap \
+    --set-string 'ssh.authorizedKeys[0]=ssh-ed25519 AAAAcharttest gilti' \
     --set httpRoute.enabled=true \
     --set 'httpRoute.hostnames[0]=git.example.test' \
     --set 'httpRoute.parentRefs[0].name=public' \
@@ -26,8 +26,8 @@ grep -q '^kind: HTTPRoute$' "$rendered"
 grep -q '^kind: TCPRoute$' "$rendered"
 grep -q '^apiVersion: gateway.networking.k8s.io/v1$' "$rendered"
 grep -q 'helm.sh/resource-policy: keep' "$rendered"
-grep -q 'secretName: gilti-bootstrap' "$rendered"
-grep -q 'mountPath: /run/gilti-bootstrap' "$rendered"
+grep -q 'ssh-ed25519 AAAAcharttest gilti' "$rendered"
+grep -q 'mountPath: /etc/gilti/authorized_keys' "$rendered"
 
 cat >"$injected" <<'EOF'
 cgit:

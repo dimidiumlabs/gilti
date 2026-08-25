@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Nikolay Govorov
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+[licenses]
+allow = [
+  # Dilution licenses available without restrictions
+  "MIT",
+  "ISC",
+  "Apache-2.0",
+  "BSD-3-Clause",
+
+  # Custom but acceptable free licenses
+  "Zlib",
+  "Unicode-3.0",
+
+  # GPL versions
+  "GPL-2.0-or-later",
+  "GPL-3.0-or-later",
+  "LGPL-2.0-or-later",
+  "LGPL-2.1-or-later",
+  "LGPL-3.0-or-later",
+]
+exceptions = [
+  # The project itself is distributed under the AGPL, but avoid it in dependencies
+  { crate = "gilti", allow = ["AGPL-3.0-or-later"] },
+  { crate = "gilti-ssh", allow = ["AGPL-3.0-or-later"] },
+]
+unused-allowed-license = "allow"
+
+[sources]
+unknown-git = "deny"
+unknown-registry = "deny"

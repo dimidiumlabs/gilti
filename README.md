@@ -1,23 +1,18 @@
 # Gilti — a tiny Git server in a box
 
-Gilti packages [cgit](https://git.zx2c4.com/cgit/),
-[Gitolite](https://gitolite.com/gitolite/), OpenSSH, and a small Tower-based
-HTTP-to-CGI gateway into one OCI service with a Helm chart. It is intended for
-small authoritative Git installations where SSH is the only Git transport and
-selected repositories are published through a read-only web interface.
+Gilti is a tiny web UI for Git that can function as either a read-only showcase
+or a Git SSH server by integrating with the system's `sshd`. It is designed for
+open-source projects and small teams that want to break free from major hosting
+platforms but aren't ready to host complex services like Forgejo.
 
-The first Gilti installation is `vcs.dimidiumlabs.io`, the authoritative Git
-service for Dimidium Labs.
-
-> Gilti is in its infancy. Back up the persistent volume and test restoration
-> before storing irreplaceable repositories.
+> Gilti is a young project. Mirror your repositories and create backups.
 
 ## Security boundary
 
-- Git fetch and push use SSH public-key authentication through Gitolite.
-- cgit is anonymous and read-only. It does not inherit Gitolite ACLs.
-- Only repositories exported to Gitolite's `gitweb` pseudo-user are listed by
-  cgit; unrestricted repository scanning is deliberately disabled.
+- Git fetch and push use SSH public-key authentication through `gilti-ssh`.
+- Every configured key has read/write access to every repository and may create
+  a repository by pushing to its name for the first time.
+- cgit is anonymous and read-only; every repository is publicly visible.
 - Smart HTTP, password authentication, shells, forwarding, tunnels, and cgit
   filters are disabled.
 - Gilti is a single-replica service backed by one POSIX persistent volume. It is
@@ -25,11 +20,12 @@ service for Dimidium Labs.
 
 ## Container
 
-A fresh state directory requires an administrator public key:
+Every start requires a static `authorized_keys` file:
 
 ```console
 docker build -t gilti:dev .
 ssh-keygen -q -t ed25519 -N '' -f ./admin
+cp ./admin.pub ./authorized_keys
 
 docker run --rm \
   --read-only --cap-drop ALL \
@@ -40,27 +36,27 @@ docker run --rm \
   --tmpfs /var/cache/cgit:rw,nosuid,nodev,noexec,size=1g \
   -p 8080:8080 -p 2222:2222 \
   -v gilti-state:/var/lib/gilti \
-  -v "$PWD/admin.pub:/run/gilti-bootstrap/admin.pub:ro" \
+  -v "$PWD/authorized_keys:/etc/gilti/authorized_keys:ro" \
   gilti:dev
 ```
 
-The bootstrap key is used only when the volume is fresh. Subsequent starts do
-not require it. Partial Gitolite state fails closed instead of being
-reinitialized. SSH host keys live on the same volume and remain stable across
-pod replacement.
+Gilti snapshots this file at process startup; changing it takes effect after a
+restart. Repositories and the persistent SSH host key live on the state volume.
 
 ## Helm
 
-Create the bootstrap Secret before the first install:
+Configure the allowed public keys in values:
+
+```yaml
+ssh:
+  authorizedKeys:
+    - ssh-ed25519 AAAA... operator@example
+```
 
 ```console
-kubectl create namespace gilti
-kubectl -n gilti create secret generic gilti-bootstrap \
-  --from-file=admin.pub="$HOME/.ssh/id_ed25519.pub"
-
 helm upgrade --install gilti ./charts/gilti \
-  --namespace gilti \
-  --set bootstrap.existingSecret=gilti-bootstrap \
+  --namespace gilti --create-namespace \
+  --values values.yaml \
   --set cgit.clonePrefix='ssh://git@vcs.dimidiumlabs.io/'
 ```
 
