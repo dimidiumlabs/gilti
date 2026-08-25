@@ -1,10 +1,10 @@
 # Gilti — a tiny Git server in a box
 
 Gilti packages [cgit](https://git.zx2c4.com/cgit/),
-[Gitolite](https://gitolite.com/gitolite/), nginx, OpenSSH, and fcgiwrap into
-one OCI service with a Helm chart. It is intended for small authoritative Git
-installations where SSH is the only Git transport and selected repositories are
-published through a read-only web interface.
+[Gitolite](https://gitolite.com/gitolite/), OpenSSH, and a small Tower-based
+HTTP-to-CGI gateway into one OCI service with a Helm chart. It is intended for
+small authoritative Git installations where SSH is the only Git transport and
+selected repositories are published through a read-only web interface.
 
 The first Gilti installation is `vcs.dimidiumlabs.io`, the authoritative Git
 service for Dimidium Labs.
@@ -73,6 +73,9 @@ Provision tools and run static checks:
 
 ```console
 mise bootstrap
+cargo fmt -- --check
+cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
 shellcheck scripts/*.sh tests/*.sh
 mise run chart -- --chart charts/gilti --lint-only
 ```

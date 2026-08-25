@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 /dist
+/target
 /.gilti-state
 mise.local.toml
 mise.*.local.toml

@@ -7,6 +7,7 @@ version = 1
 path = [
   "charts/gilti/templates/*",
   "charts/gilti/values.schema.json",
+  "Cargo.lock",
   "mise.lock",
 ]
 SPDX-FileCopyrightText = "2026 Nikolay Govorov"

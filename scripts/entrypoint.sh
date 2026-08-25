@@ -63,9 +63,9 @@ prepare_runtime() {
     install -d -m 0755 -o root -g root "$state"
     install -d -m 0750 -o git -g git "$git_home" "$cache_dir"
     install -d -m 0700 -o root -g root "$host_key_dir"
-    install -d -m 0755 "$run_dir"
+    install -d -m 0750 -o git -g git "$run_dir"
     chown git:git "$cache_dir"
-    rm -f "$run_dir/fcgiwrap.sock" "$run_dir/nginx.pid" "$run_dir/sshd.pid"
+    rm -f "$run_dir/sshd.pid" "$run_dir"/cgitrc.*
 }
 
 state_status() {
@@ -133,26 +133,26 @@ initialize() {
     chmod 0644 "$host_key.pub.tmp"
     mv -f "$host_key.pub.tmp" "$host_key.pub"
 
-    nginx -t -e /dev/stderr -c /etc/nginx/nginx.conf
+    /usr/local/bin/gilti-httpd --check
     /usr/sbin/sshd -t -f /etc/ssh/sshd_config
 }
 
 stop_services() {
     trap - TERM INT HUP
-    for pid in ${fcgi_pid:-} ${sshd_pid:-} ${nginx_pid:-}; do
+    for pid in ${httpd_pid:-} ${sshd_pid:-}; do
         kill -TERM "$pid" 2>/dev/null || true
     done
     attempts=0
     while [ "$attempts" -lt 50 ]; do
         running=false
-        for pid in ${fcgi_pid:-} ${sshd_pid:-} ${nginx_pid:-}; do
+        for pid in ${httpd_pid:-} ${sshd_pid:-}; do
             kill -0 "$pid" 2>/dev/null && running=true
         done
         [ "$running" = true ] || break
         attempts=$((attempts + 1))
         sleep 0.1
     done
-    for pid in ${fcgi_pid:-} ${sshd_pid:-} ${nginx_pid:-}; do
+    for pid in ${httpd_pid:-} ${sshd_pid:-}; do
         kill -KILL "$pid" 2>/dev/null || true
         wait "$pid" 2>/dev/null || true
     done
@@ -162,21 +162,17 @@ supervise() {
     initialize
     trap stop_services TERM INT HUP
 
-    HOME="$git_home" spawn-fcgi -n \
-        -s "$run_dir/fcgiwrap.sock" -M 0660 -U git -G git \
-        -u git -g git -- /usr/bin/fcgiwrap -f &
-    fcgi_pid=$!
-
     /usr/sbin/sshd -D -e -f /etc/ssh/sshd_config &
     sshd_pid=$!
 
-    nginx -e /dev/stderr -c /etc/nginx/nginx.conf -g 'daemon off;' &
-    nginx_pid=$!
+    su-exec git:git env HOME="$git_home" USER=git LOGNAME=git \
+        /usr/local/bin/gilti-httpd &
+    httpd_pid=$!
 
     while :; do
-        for pid in "$fcgi_pid" "$sshd_pid" "$nginx_pid"; do
+        for pid in "$sshd_pid" "$httpd_pid"; do
             if ! kill -0 "$pid" 2>/dev/null; then
-                if wait "$pid"; then status=0; else status=$?; fi
+                if wait "$pid"; then status=1; else status=$?; fi
                 log "a service exited; stopping the pod"
                 stop_services
                 exit "$status"

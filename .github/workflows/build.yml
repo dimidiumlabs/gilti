@@ -29,6 +29,9 @@ jobs:
           experimental: true
           install: true
           cache: true
+      - run: cargo fmt -- --check
+      - run: cargo test --locked
+      - run: cargo clippy --locked --all-targets -- -D warnings
       - run: shellcheck scripts/*.sh tests/*.sh
       - run: tests/chart.sh
 

@@ -74,8 +74,9 @@ as a unit.
 
 ## Security context
 
-The nginx and cgit workers run without privileges. OpenSSH intentionally keeps a
-root master so it can enter the `git` account (UID/GID 10000). The chart drops
+The Rust HTTP gateway and its cgit children run without privileges. OpenSSH
+intentionally keeps a root master so it can enter the `git` account (UID/GID
+10000). The chart drops
 all capabilities and restores only `CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `SETGID`,
 `SETUID`, and `SYS_CHROOT`. The root filesystem is read-only; state, cache,
 `/run`, and `/tmp` are explicit writable mounts.

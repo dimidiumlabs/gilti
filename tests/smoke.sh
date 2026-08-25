@@ -81,6 +81,37 @@ start() {
 }
 
 start with-key
+[ "$(curl -fsS "http://127.0.0.1:$http_port/healthz")" = ok ] || {
+    echo 'unexpected health response' >&2
+    exit 1
+}
+status=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$http_port/")
+[ "$status" = 403 ] || {
+    echo "POST to cgit returned HTTP $status instead of 403" >&2
+    exit 1
+}
+curl -fsS "http://127.0.0.1:$http_port/cgit.css" | grep -q 'cgit'
+content_type=$(curl -fsSI "http://127.0.0.1:$http_port/cgit.css" |
+    awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
+[ "$content_type" = text/css ] || {
+    echo "unexpected cgit.css content type: $content_type" >&2
+    exit 1
+}
+curl -fsSI "http://127.0.0.1:$http_port/" >/dev/null
+# shellcheck disable=SC2016 # Expanded by the shell inside the container.
+httpd_uid=$("$engine" exec "$name" sh -c '
+    for comm in /proc/[0-9]*/comm; do
+        [ "$(cat "$comm")" = gilti-httpd ] || continue
+        stat -c %u "${comm%/comm}"
+        exit
+    done
+    exit 1
+')
+[ "$httpd_uid" = 10000 ] || {
+    echo "gilti-httpd runs as unexpected UID $httpd_uid" >&2
+    exit 1
+}
+
 host_key_mode=$("$engine" exec "$name" stat -c '%u:%a' /var/lib/gilti/ssh/ssh_host_ed25519_key)
 [ "$host_key_mode" = 0:600 ] || {
     echo "unexpected SSH host-key ownership/mode: $host_key_mode" >&2

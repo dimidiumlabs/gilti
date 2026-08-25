@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 Nikolay Govorov
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+[package]
+name = "gilti"
+description = "Gilti web-server and daemon"
+version.workspace = true
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "gilti-httpd"
+path = "src/main.rs"
+
+[dependencies]
+axum.workspace = true
+percent-encoding.workspace = true
+tokio.workspace = true
+tower.workspace = true
