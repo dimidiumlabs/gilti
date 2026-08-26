@@ -262,6 +262,11 @@ div#cgit div#summary {
 	margin-bottom: 1em;
 }
 
+div#cgit div#summary pre {
+	margin: 0;
+	white-space: pre-wrap;
+}
+
 div#cgit table#downloads {
 	float: right;
 	border-collapse: collapse;

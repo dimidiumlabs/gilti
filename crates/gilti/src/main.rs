@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 mod cgi;
+mod ui;
 
 const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:8080";
 const MAX_CACHE_SECONDS: u64 = 3600;
@@ -191,10 +192,51 @@ async fn proxy_to_cgit(
     }
     request.extensions_mut().insert(cgi::RemoteAddr(remote));
 
+    let method = request.method().clone();
     match tower::ServiceExt::oneshot(state.cgit.clone(), request).await {
-        Ok(response) => response,
+        Ok(response) => render_private_page(method, response).await,
         Err(error) => {
             eprintln!("gilti: cgit request failed: {error}");
+            plain_response(axum::http::StatusCode::BAD_GATEWAY, "bad gateway\n")
+        }
+    }
+}
+
+async fn render_private_page(
+    method: axum::http::Method,
+    response: axum::response::Response,
+) -> axum::response::Response {
+    let private_page = response
+        .headers()
+        .get(axum::http::header::CONTENT_TYPE)
+        .is_some_and(|value| value.as_bytes() == ui::PRIVATE_CONTENT_TYPE.as_bytes());
+    if !private_page {
+        return response;
+    }
+
+    let (mut parts, body) = response.into_parts();
+    parts.headers.insert(
+        axum::http::header::CONTENT_TYPE,
+        axum::http::HeaderValue::from_static("text/html; charset=UTF-8"),
+    );
+    parts.headers.remove(axum::http::header::CONTENT_LENGTH);
+    if method == axum::http::Method::HEAD {
+        return axum::http::response::Response::from_parts(parts, axum::body::Body::empty());
+    }
+    let body = match axum::body::to_bytes(body, usize::MAX).await {
+        Ok(body) => body,
+        Err(error) => {
+            eprintln!("gilti: cannot read private page response: {error}");
+            return plain_response(axum::http::StatusCode::BAD_GATEWAY, "bad gateway\n");
+        }
+    };
+    match ui::render(&body) {
+        Ok(markup) => axum::http::response::Response::from_parts(
+            parts,
+            axum::body::Body::from(markup.into_string()),
+        ),
+        Err(error) => {
+            eprintln!("gilti: invalid private page response: {error}");
             plain_response(axum::http::StatusCode::BAD_GATEWAY, "bad gateway\n")
         }
     }
@@ -236,5 +278,79 @@ mod tests {
         assert!(super::prepare_cgit_config("cache=1\ncache=2\n").is_err());
         assert!(super::prepare_cgit_config("cache=3601\n").is_err());
         assert!(super::prepare_cgit_config("cache=forever\n").is_err());
+    }
+
+    #[tokio::test]
+    async fn private_pages_become_html_and_head_keeps_headers() {
+        let model = br#"{"page":"repolist","title":"Gilti","root_desc":"","root_url":"/","about_url":"/?p=about","noheader":true,"search":"","current_url":"/","root_readme":false,"owner_enabled":false,"links_enabled":false,"section_grouping":false,"shell":{"embedded":false,"robots":"","css":[],"js":[],"favicon":"","head_include":null,"header":null,"footer_configured":false,"footer":null,"logo":"","logo_link":"","cgit_version":"v1","git_version":"2","generated_at":"now"},"sort_urls":{"name":"/?s=name","desc":"/?s=desc","owner":"/?s=owner","idle":"/?s=idle"},"rows":[],"pager":[]}"#;
+        let response = axum::http::Response::builder()
+            .status(axum::http::StatusCode::OK)
+            .header(
+                axum::http::header::CONTENT_TYPE,
+                super::ui::PRIVATE_CONTENT_TYPE,
+            )
+            .header(axum::http::header::CACHE_CONTROL, "max-age=60")
+            .header(axum::http::header::CONTENT_LENGTH, model.len())
+            .body(axum::body::Body::from(model.as_slice()))
+            .unwrap();
+        let response = super::render_private_page(axum::http::Method::GET, response).await;
+        assert_eq!(
+            response.headers()[axum::http::header::CONTENT_TYPE],
+            "text/html; charset=UTF-8"
+        );
+        assert_eq!(
+            response.headers()[axum::http::header::CACHE_CONTROL],
+            "max-age=60"
+        );
+        assert!(
+            !response
+                .headers()
+                .contains_key(axum::http::header::CONTENT_LENGTH)
+        );
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert!(
+            std::str::from_utf8(&body)
+                .unwrap()
+                .contains("repository list")
+        );
+
+        let response = axum::http::Response::builder()
+            .header(
+                axum::http::header::CONTENT_TYPE,
+                super::ui::PRIVATE_CONTENT_TYPE,
+            )
+            .header(axum::http::header::CACHE_CONTROL, "max-age=60")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let response = super::render_private_page(axum::http::Method::HEAD, response).await;
+        assert_eq!(
+            response.headers()[axum::http::header::CONTENT_TYPE],
+            "text/html; charset=UTF-8"
+        );
+        assert!(
+            axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[tokio::test]
+    async fn malformed_private_page_fails_closed() {
+        let response = axum::http::Response::builder()
+            .header(
+                axum::http::header::CONTENT_TYPE,
+                super::ui::PRIVATE_CONTENT_TYPE,
+            )
+            .body(axum::body::Body::from("not json"))
+            .unwrap();
+        assert_eq!(
+            super::render_private_page(axum::http::Method::GET, response)
+                .await
+                .status(),
+            axum::http::StatusCode::BAD_GATEWAY
+        );
     }
 }

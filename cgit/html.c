@@ -332,6 +332,23 @@ int html_include(const char *filename)
 	return 0;
 }
 
+int html_include_text(const char *filename)
+{
+	FILE *f;
+	char buf[4096];
+	size_t len;
+
+	if (!(f = fopen(filename, "r"))) {
+		fprintf(stderr, "[cgit] Failed to include file %s: %s (%d).\n",
+			filename, strerror(errno), errno);
+		return -1;
+	}
+	while ((len = fread(buf, 1, sizeof(buf), f)) > 0)
+		html_ntxt(buf, len);
+	fclose(f);
+	return 0;
+}
+
 void http_parse_querystring(const char *txt, void (*fn)(const char *name, const char *value))
 {
 	const char *t = txt;

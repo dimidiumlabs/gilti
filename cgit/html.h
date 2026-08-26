@@ -35,6 +35,7 @@ extern void html_link_open(const char *url, const char *title, const char *class
 extern void html_link_close(void);
 extern void html_fileperm(unsigned short mode);
 extern int html_include(const char *filename);
+extern int html_include_text(const char *filename);
 
 extern void http_parse_querystring(const char *txt, void (*fn)(const char *name, const char *value));
 

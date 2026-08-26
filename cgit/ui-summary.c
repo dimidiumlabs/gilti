@@ -132,14 +132,14 @@ void cgit_print_repo_readme(const char *path)
 			goto done;
 	}
 
-	/* Print the calculated readme from the git repo or filesystem. */
-	html("<div id='summary'>");
+	/* Print the calculated readme from the git repo or filesystem as text. */
+	html("<div id='summary'><pre>");
 	if (ref)
 		cgit_print_file(filename, ref, 1);
 	else
-		html_include(filename);
+		html_include_text(filename);
 
-	html("</div>");
+	html("</pre></div>");
 	if (free_filename)
 		free(filename);
 
