@@ -74,6 +74,15 @@ start() {
 }
 
 start
+cgit_path=$("$engine" exec "$name" sh -c 'command -v gilti-cgit')
+[ "$cgit_path" = /usr/local/bin/gilti-cgit ] || {
+    echo "unexpected cgit binary path: $cgit_path" >&2
+    exit 1
+}
+if "$engine" exec "$name" test -e /usr/share/webapps/cgit/cgit.cgi; then
+    echo 'legacy cgit.cgi is installed' >&2
+    exit 1
+fi
 sshd_config=$("$engine" exec "$name" /usr/sbin/sshd -T -f /etc/ssh/sshd_config \
     -C user=git,host=localhost,addr=127.0.0.1)
 for expected in \
@@ -107,6 +116,13 @@ content_type=$(curl -fsSI "http://127.0.0.1:$http_port/cgit.css" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
 [ "$content_type" = text/css ] || {
     echo "unexpected cgit.css content type: $content_type" >&2
+    exit 1
+}
+curl -fsS "http://127.0.0.1:$http_port/cgit.js" | grep -q 'function'
+content_type=$(curl -fsSI "http://127.0.0.1:$http_port/cgit.js" |
+    awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
+[ "$content_type" = text/javascript ] || {
+    echo "unexpected cgit.js content type: $content_type" >&2
     exit 1
 }
 curl -fsSI "http://127.0.0.1:$http_port/healthz" >/dev/null

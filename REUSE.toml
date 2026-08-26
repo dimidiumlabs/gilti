@@ -27,3 +27,11 @@ path = [
 ]
 SPDX-FileCopyrightText = "2026 Nikolay Govorov"
 SPDX-License-Identifier = "CC-BY-3.0"
+
+[[annotations]]
+path = [
+  "cgit/cgit.png",
+  "cgit/favicon.ico",
+]
+SPDX-FileCopyrightText = "cgit Development Team <cgit@lists.zx2c4.com>"
+SPDX-License-Identifier = "GPL-2.0-only"

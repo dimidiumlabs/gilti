@@ -5,31 +5,20 @@
 ARG ALPINE_VERSION=3.22.1
 ARG ALPINE_DIGEST=sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
 
-FROM docker.io/library/alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS builder
-
-RUN apk add --no-cache \
-      cargo=1.87.0-r1 \
-      rust=1.87.0-r1
-
-WORKDIR /src
-COPY Cargo.toml Cargo.lock ./
-COPY crates ./crates
-RUN cargo build --locked --release --workspace
-
 FROM docker.io/library/alpine:${ALPINE_VERSION}@${ALPINE_DIGEST}
 
+ARG TARGETARCH
 ARG VERSION=dev
 ARG REVISION=unknown
 
 LABEL org.opencontainers.image.title="Gilti" \
-      org.opencontainers.image.description="Boxed tiny Git server powered by cgit and OpenSSH" \
+      org.opencontainers.image.description="Tiny Git server in a box" \
       org.opencontainers.image.source="https://github.com/dimidiumlabs/gilti" \
       org.opencontainers.image.version="$VERSION" \
       org.opencontainers.image.revision="$REVISION" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 
 RUN apk add --no-cache \
-      cgit=1.2.3-r5 \
       git=2.49.1-r0 \
       libgcc=14.2.0-r6 \
       openssh-keygen=10.0_p1-r10 \
@@ -49,18 +38,27 @@ RUN apk add --no-cache \
     install -d -m 0755 /etc/gilti && \
     rm -rf /var/cache/apk/*
 
-COPY --from=builder --chown=root:root /src/target/release/gilti /usr/local/bin/gilti
-COPY --from=builder --chown=root:root /src/target/release/gilti-ssh /usr/local/bin/gilti-ssh
+COPY --chown=root:root --chmod=0755 \
+    .container/binary-${TARGETARCH}/gilti \
+    .container/binary-${TARGETARCH}/gilti-cgit \
+    .container/binary-${TARGETARCH}/gilti-ssh \
+    /usr/local/bin/
+COPY --chown=root:root \
+    .container/binary-${TARGETARCH}/cgit.css \
+    .container/binary-${TARGETARCH}/cgit.js \
+    .container/binary-${TARGETARCH}/cgit.png \
+    .container/binary-${TARGETARCH}/favicon.ico \
+    /usr/share/webapps/cgit/
+COPY --chown=root:root \
+    .container/binary-${TARGETARCH}/COPYING.cgit.txt \
+    .container/binary-${TARGETARCH}/COPYING.git.txt \
+    /usr/share/doc/gilti-cgit/
 COPY --chown=root:root config/cgitrc /etc/cgitrc
 COPY --chown=root:root config/sshd_config /etc/ssh/sshd_config
-COPY --chown=root:root scripts/entrypoint.sh /usr/local/bin/gilti-entrypoint
+COPY --chown=root:root --chmod=0755 scripts/entrypoint.sh /usr/local/bin/gilti-entrypoint
 COPY --chown=root:root LICENSE README.md /usr/share/doc/gilti/
 
-RUN chmod 0755 \
-      /usr/local/bin/gilti-entrypoint \
-      /usr/local/bin/gilti \
-      /usr/local/bin/gilti-ssh && \
-    /usr/local/bin/gilti --check && \
+RUN /usr/local/bin/gilti --check && \
     /usr/local/bin/gilti-ssh --check
 
 EXPOSE 8080 2222

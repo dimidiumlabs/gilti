@@ -23,7 +23,7 @@ platforms but aren't ready to host complex services like Forgejo.
 Every start requires a static `authorized_keys` file:
 
 ```console
-docker build -t gilti:dev .
+docker pull ghcr.io/dimidiumlabs/gilti:nightly
 ssh-keygen -q -t ed25519 -N '' -f ./admin
 cp ./admin.pub ./authorized_keys
 
@@ -37,7 +37,7 @@ docker run --rm \
   -p 8080:8080 -p 2222:2222 \
   -v gilti-state:/var/lib/gilti \
   -v "$PWD/authorized_keys:/etc/gilti/authorized_keys:ro" \
-  gilti:dev
+  ghcr.io/dimidiumlabs/gilti:nightly
 ```
 
 Gilti snapshots this file at process startup; changing it takes effect after a
@@ -65,9 +65,10 @@ and public-repository configuration.
 
 ## Development
 
-Provision tools and run static checks:
+Initialize the Git source used to build cgit, provision tools, and run static checks:
 
 ```console
+git submodule update --init
 mise bootstrap
 cargo fmt -- --check
 cargo test --locked
@@ -76,8 +77,10 @@ shellcheck scripts/*.sh tests/*.sh
 mise run chart -- --chart charts/gilti --lint-only
 ```
 
-Linux packages are intentionally not produced. Gilti's release artifacts are a
-multi-platform OCI image and an OCI Helm chart.
+The CI matrix builds architecture-specific Alpine artifacts before assembling
+the image; the Dockerfile does not compile source code. Linux packages are
+intentionally not produced. Gilti's release artifacts are a multi-platform OCI
+image and an OCI Helm chart.
 
 ## Contributing
 

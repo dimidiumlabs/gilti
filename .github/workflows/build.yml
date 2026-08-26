@@ -52,6 +52,8 @@ jobs:
             arch: arm64
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          submodules: true
 
       - uses: jdx/mise-action@5228313ee0372e111a38da051671ca30fc5a96db # v3
         with:
@@ -63,10 +65,33 @@ jobs:
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
       - run: cargo clippy --locked --all-targets --all-features --release -- -D warnings
-      - run: cargo build --release
-
       - run: cargo test --all-features --release --locked
       - run: tests/chart.sh
+
+      - name: Build container artifacts
+        env:
+          ALPINE_IMAGE: docker.io/library/alpine:3.22.1@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
+        run: |
+          docker run --rm \
+            --volume "$PWD:/src" \
+            --workdir /src \
+            --env "HOST_UID=$(id -u)" \
+            --env "HOST_GID=$(id -g)" \
+            "$ALPINE_IMAGE" sh -euxc '
+              apk add --no-cache \
+                build-base=0.5-r3 \
+                cargo=1.87.0-r1 \
+                rust=1.87.0-r1 \
+                zlib-dev=1.3.2-r0
+              scripts/build-artifacts.sh "${{ matrix.arch }}"
+              chown -R "$HOST_UID:$HOST_GID" .container
+            '
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: binary-${{ matrix.arch }}
+          path: .container/binary-${{ matrix.arch }}/
+          if-no-files-found: error
 
   image:
     name: Image and smoke test
@@ -79,6 +104,10 @@ jobs:
           version: 2026.7.5
           experimental: true
           install: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: binary-amd64
+          path: .container/binary-amd64
       - name: Build local image
         run: |
           mise run container -- \
@@ -106,6 +135,10 @@ jobs:
           version: 2026.7.5
           experimental: true
           install: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: binary-*
+          path: .container
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
       - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.6.0
         with:

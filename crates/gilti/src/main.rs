@@ -5,12 +5,13 @@ mod cgi;
 
 const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:8080";
 
-const CGIT: &str = "/usr/share/webapps/cgit/cgit.cgi";
+const CGIT: &str = "/usr/local/bin/gilti-cgit";
 const CGIT_CONFIG: &str = "/etc/cgitrc";
 const GIT_HOME: &str = "/var/lib/gilti/git";
 const RUN_DIR: &str = "/run/gilti/http";
 
 const CGIT_CSS: &str = "/usr/share/webapps/cgit/cgit.css";
+const CGIT_JS: &str = "/usr/share/webapps/cgit/cgit.js";
 const CGIT_LOGO: &str = "/usr/share/webapps/cgit/cgit.png";
 const CGIT_FAVICON: &str = "/usr/share/webapps/cgit/favicon.ico";
 
@@ -76,6 +77,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             axum::routing::get(async || static_file(CGIT_CSS, "text/css")),
         )
         .route(
+            "/cgit.js",
+            axum::routing::get(async || static_file(CGIT_JS, "text/javascript")),
+        )
+        .route(
             "/cgit.png",
             axum::routing::get(async || static_file(CGIT_LOGO, "image/png")),
         )
@@ -106,7 +111,7 @@ fn check_files() -> std::io::Result<()> {
     {
         return Err(std::io::Error::other(format!("{CGIT} is not executable")));
     }
-    for path in [CGIT_CONFIG, CGIT_CSS, CGIT_LOGO, CGIT_FAVICON] {
+    for path in [CGIT_CONFIG, CGIT_CSS, CGIT_JS, CGIT_LOGO, CGIT_FAVICON] {
         if !std::fs::metadata(path)?.is_file() {
             return Err(std::io::Error::other(format!(
                 "{path} is not a regular file"
