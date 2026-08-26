@@ -25,12 +25,8 @@ data:
     css=/cgit.css
     logo=/cgit.png
     favicon=/favicon.ico
-    cache-root=/var/cache/cgit
-    cache-size=1000
-    cache-dynamic-ttl=5
-    cache-repo-ttl=5
-    cache-root-ttl=5
-    cache-scanrc-ttl=1
+    # Gilti consumes this setting before invoking cgit.
+    cache={{ .Values.cgit.cache }}
     enable-http-clone=0
     enable-index-owner=1
     enable-index-links=1

@@ -78,5 +78,7 @@ The Rust HTTP gateway and its cgit children run without privileges. OpenSSH
 intentionally keeps a root master so it can enter the `git` account (UID/GID
 10000). The chart drops all capabilities and restores only `CHOWN`,
 `DAC_OVERRIDE`, `FOWNER`, `SETGID`, `SETUID`, and `SYS_CHROOT`. The root
-filesystem is read-only; state, cache, `/run`, and `/tmp` are explicit writable
-mounts.
+filesystem is read-only; state, `/run`, and `/tmp` are explicit writable
+mounts. CGI responses use an in-memory LRU cache bounded to 64 entries and
+4 MiB; configure its lifetime with `cgit.cache` in seconds, or set it to zero
+to disable caching.

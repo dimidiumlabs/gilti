@@ -28,6 +28,11 @@ grep -q '^apiVersion: gateway.networking.k8s.io/v1$' "$rendered"
 grep -q 'helm.sh/resource-policy: keep' "$rendered"
 grep -q 'ssh-ed25519 AAAAcharttest gilti' "$rendered"
 grep -q 'mountPath: /etc/gilti/authorized_keys' "$rendered"
+grep -q '^    cache=5$' "$rendered"
+if grep -q '/var/cache/cgit' "$rendered"; then
+    echo 'chart still provisions the removed cgit disk cache' >&2
+    exit 1
+fi
 
 cat >"$injected" <<'EOF'
 cgit:
@@ -42,5 +47,10 @@ fi
 
 if helm template gilti "$chart" --set replicaCount=2 >"$invalid" 2>&1; then
     echo 'chart accepted unsupported replicaCount=2' >&2
+    exit 1
+fi
+
+if helm template gilti "$chart" --set cgit.cache=3601 >"$invalid" 2>&1; then
+    echo 'chart accepted an excessive CGI cache lifetime' >&2
     exit 1
 fi

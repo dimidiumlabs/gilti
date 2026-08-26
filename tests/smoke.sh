@@ -50,7 +50,6 @@ start() {
         --cap-add SETGID --cap-add SETUID --cap-add SYS_CHROOT \
         --tmpfs /run:rw,nosuid,nodev,noexec,size=32m \
         --tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m \
-        --tmpfs /var/cache/cgit:rw,nosuid,nodev,noexec,size=256m \
         --mount "type=volume,src=$volume,dst=/var/lib/gilti" \
         --mount "type=bind,src=$authorized_keys,dst=/etc/gilti/authorized_keys,readonly" \
         -p "127.0.0.1:$http_port:8080" -p "127.0.0.1:$ssh_port:2222" \
@@ -81,6 +80,14 @@ cgit_path=$("$engine" exec "$name" sh -c 'command -v gilti-cgit')
 }
 if "$engine" exec "$name" test -e /usr/share/webapps/cgit/cgit.cgi; then
     echo 'legacy cgit.cgi is installed' >&2
+    exit 1
+fi
+if "$engine" exec "$name" test -e /var/cache/cgit; then
+    echo 'legacy cgit disk-cache directory exists' >&2
+    exit 1
+fi
+if "$engine" exec "$name" sh -c 'grep -q "^cache=" /run/gilti/http/cgitrc.*'; then
+    echo 'Gilti cache parameter leaked into the cgit configuration' >&2
     exit 1
 fi
 sshd_config=$("$engine" exec "$name" /usr/sbin/sshd -T -f /etc/ssh/sshd_config \
@@ -238,7 +245,16 @@ until curl -fsS "http://127.0.0.1:$http_port/" | grep -q 'testing'; do
     [ "$i" -lt 30 ] || { "$engine" logs "$name" >&2; exit 1; }
     sleep 1
 done
-curl -fsS "http://127.0.0.1:$http_port/testing/" >/dev/null
+cache_url="http://127.0.0.1:$http_port/testing/"
+curl -fsS -D "$work/cache-1.headers" -o /dev/null "$cache_url"
+sleep 2
+curl -fsS -D "$work/cache-2.headers" -o /dev/null "$cache_url"
+cache_modified_1=$(awk -F ': ' 'tolower($1) == "last-modified" { gsub("\\r", "", $2); print $2 }' "$work/cache-1.headers")
+cache_modified_2=$(awk -F ': ' 'tolower($1) == "last-modified" { gsub("\\r", "", $2); print $2 }' "$work/cache-2.headers")
+[ -n "$cache_modified_1" ] && [ "$cache_modified_1" = "$cache_modified_2" ] || {
+    echo 'CGI response was not served from the in-memory cache' >&2
+    exit 1
+}
 
 # The running sshd uses its startup snapshot, not the mounted source file.
 cat "$work/admin.pub" >"$authorized_keys"

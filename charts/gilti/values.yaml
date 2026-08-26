@@ -21,6 +21,8 @@ cgit:
   rootTitle: Gilti
   rootDescription: A tiny Git server
   clonePrefix: ""
+  # In-memory CGI response lifetime in seconds; zero disables the cache.
+  cache: 5
 
 persistence:
   enabled: true
@@ -77,7 +79,6 @@ resources:
 
 runtime:
   runSizeLimit: 32Mi
-  cacheSizeLimit: 1Gi
   tmpSizeLimit: 256Mi
 
 nodeSelector: {}

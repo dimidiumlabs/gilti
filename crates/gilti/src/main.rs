@@ -4,6 +4,7 @@
 mod cgi;
 
 const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:8080";
+const MAX_CACHE_SECONDS: u64 = 3600;
 
 const CGIT: &str = "/usr/local/bin/gilti-cgit";
 const CGIT_CONFIG: &str = "/etc/cgitrc";
@@ -22,20 +23,57 @@ struct AppState {
 
 struct CgitConfig {
     path: std::path::PathBuf,
+    cache: std::time::Duration,
 }
 
 impl CgitConfig {
     fn create() -> std::io::Result<Self> {
-        let contents = std::fs::read(CGIT_CONFIG)?;
+        let contents = std::fs::read_to_string(CGIT_CONFIG)?;
+        let (contents, cache) = prepare_cgit_config(&contents)?;
         let path = std::path::PathBuf::from(format!("{RUN_DIR}/cgitrc.{}", std::process::id()));
         let mut options = std::fs::OpenOptions::new();
         options.write(true).create_new(true);
         std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
         let mut file = options.open(&path)?;
-        let config = Self { path };
-        std::io::Write::write_all(&mut file, &contents)?;
+        let config = Self { path, cache };
+        std::io::Write::write_all(&mut file, contents.as_bytes())?;
         Ok(config)
     }
+}
+
+fn prepare_cgit_config(contents: &str) -> std::io::Result<(String, std::time::Duration)> {
+    let mut output = String::with_capacity(contents.len());
+    let mut cache = None;
+
+    for line in contents.split_inclusive('\n') {
+        let value = line
+            .trim_end_matches(['\r', '\n'])
+            .trim_start()
+            .strip_prefix("cache=");
+        let Some(value) = value else {
+            output.push_str(line);
+            continue;
+        };
+        if cache.is_some() {
+            return Err(invalid_config("cache is configured more than once"));
+        }
+        let seconds = value
+            .trim()
+            .parse::<u64>()
+            .map_err(|_| invalid_config("cache must be an integer number of seconds"))?;
+        if seconds > MAX_CACHE_SECONDS {
+            return Err(invalid_config(format!(
+                "cache must not exceed {MAX_CACHE_SECONDS} seconds"
+            )));
+        }
+        cache = Some(std::time::Duration::from_secs(seconds));
+    }
+
+    Ok((output, cache.unwrap_or_default()))
+}
+
+fn invalid_config(message: impl Into<String>) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::InvalidData, message.into())
 }
 
 impl Drop for CgitConfig {
@@ -55,14 +93,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|_| DEFAULT_LISTEN_ADDR.to_owned())
         .parse::<std::net::SocketAddr>()?;
     check_files()?;
+    let cgit_config = CgitConfig::create()?;
 
     if std::env::args().nth(1).as_deref() == Some("--check") {
         return Ok(());
     }
 
-    let cgit_config = CgitConfig::create()?;
     let state = AppState {
         cgit: cgi::Cgi::new(CGIT, GIT_HOME, listen_addr)
+            .cache(cgit_config.cache)
             .env("CGIT_CONFIG", cgit_config.path.as_os_str())
             .env("HOME", GIT_HOME)
             .env("PATH", "/usr/bin:/bin"),
@@ -178,4 +217,24 @@ fn plain_response(
     message: &'static str,
 ) -> axum::response::Response {
     response(status, "text/plain", message.as_bytes().to_vec())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn extracts_cache_from_cgit_config() {
+        let (contents, cache) =
+            super::prepare_cgit_config("# comment\r\ncache=5\r\nroot-title=Gilti\r\n").unwrap();
+        assert_eq!(contents, "# comment\r\nroot-title=Gilti\r\n");
+        assert_eq!(cache, std::time::Duration::from_secs(5));
+    }
+
+    #[test]
+    fn cache_is_optional_and_bounded() {
+        let (_, cache) = super::prepare_cgit_config("root-title=Gilti\n").unwrap();
+        assert!(cache.is_zero());
+        assert!(super::prepare_cgit_config("cache=1\ncache=2\n").is_err());
+        assert!(super::prepare_cgit_config("cache=3601\n").is_err());
+        assert!(super::prepare_cgit_config("cache=forever\n").is_err());
+    }
 }

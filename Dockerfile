@@ -30,7 +30,7 @@ RUN apk add --no-cache \
     adduser -S -D -u 10000 -G git -h /var/lib/gilti/git -s /bin/sh git && \
     passwd -d git && \
     install -d -m 0750 -o git -g git \
-      /var/lib/gilti/git /var/lib/gilti/git/repositories /var/cache/cgit && \
+      /var/lib/gilti/git /var/lib/gilti/git/repositories && \
     install -d -m 0700 -o root -g root /var/lib/gilti/ssh && \
     install -d -m 0755 -o root -g root /run/gilti && \
     install -d -m 0750 -o git -g git /run/gilti/http && \

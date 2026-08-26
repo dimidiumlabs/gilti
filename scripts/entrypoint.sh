@@ -10,7 +10,6 @@ state=/var/lib/gilti
 run_dir=/run/gilti
 http_run_dir=$run_dir/http
 ssh_run_dir=$run_dir/ssh
-cache_dir=/var/cache/cgit
 
 git_home=$state/git
 repositories=$git_home/repositories
@@ -28,7 +27,7 @@ prepare_runtime() {
         [ ! -L "$path" ] || { log "refusing symlinked state path $path"; exit 1; }
     done
     install -d -m 0755 -o root -g root "$state"
-    install -d -m 0750 -o git -g git "$git_home" "$repositories" "$cache_dir"
+    install -d -m 0750 -o git -g git "$git_home" "$repositories"
     install -d -m 0700 -o root -g root "$host_key_dir"
     install -d -m 0755 -o root -g root "$run_dir"
     install -d -m 0750 -o git -g git "$http_run_dir"

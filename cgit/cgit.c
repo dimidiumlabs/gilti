@@ -1,4 +1,5 @@
 /* SPDX-FileCopyrightText: cgit Development Team <cgit@lists.zx2c4.com>
+ * SPDX-FileCopyrightText: 2026 Nikolay Govorov
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
@@ -13,7 +14,6 @@
 #define USE_THE_REPOSITORY_VARIABLE
 
 #include "cgit.h"
-#include "cache.h"
 #include "cmd.h"
 #include "configfile.h"
 #include "html.h"
@@ -42,8 +42,6 @@ static void add_mimetype(const char *name, const char *value)
 	item = string_list_insert(&ctx.cfg.mimetypes, name);
 	item->util = xstrdup(value);
 }
-
-static void process_cached_repolist(const char *path);
 
 void cgit_repo_config(struct cgit_repo *repo, const char *name, const char *value)
 {
@@ -207,24 +205,6 @@ static void config_cb(const char *name, const char *value)
 		ctx.cfg.enable_git_config = atoi(value);
 	else if (!strcmp(name, "max-stats"))
 		ctx.cfg.max_stats = cgit_find_stats_period(value, NULL);
-	else if (!strcmp(name, "cache-size"))
-		ctx.cfg.cache_size = atoi(value);
-	else if (!strcmp(name, "cache-root"))
-		ctx.cfg.cache_root = strdup_first_line(expand_macros(value));
-	else if (!strcmp(name, "cache-root-ttl"))
-		ctx.cfg.cache_root_ttl = atoi(value);
-	else if (!strcmp(name, "cache-repo-ttl"))
-		ctx.cfg.cache_repo_ttl = atoi(value);
-	else if (!strcmp(name, "cache-scanrc-ttl"))
-		ctx.cfg.cache_scanrc_ttl = atoi(value);
-	else if (!strcmp(name, "cache-static-ttl"))
-		ctx.cfg.cache_static_ttl = atoi(value);
-	else if (!strcmp(name, "cache-dynamic-ttl"))
-		ctx.cfg.cache_dynamic_ttl = atoi(value);
-	else if (!strcmp(name, "cache-about-ttl"))
-		ctx.cfg.cache_about_ttl = atoi(value);
-	else if (!strcmp(name, "cache-snapshot-ttl"))
-		ctx.cfg.cache_snapshot_ttl = atoi(value);
 	else if (!strcmp(name, "case-sensitive-sort"))
 		ctx.cfg.case_sensitive_sort = atoi(value);
 	else if (!strcmp(name, "about-filter"))
@@ -256,9 +236,7 @@ static void config_cb(const char *name, const char *value)
 	else if (!strcmp(name, "project-list"))
 		ctx.cfg.project_list = strdup_first_line(expand_macros(value));
 	else if (!strcmp(name, "scan-path"))
-		if (ctx.cfg.cache_size)
-			process_cached_repolist(expand_macros(value));
-		else if (ctx.cfg.project_list)
+		if (ctx.cfg.project_list)
 			scan_projects(expand_macros(value),
 				      ctx.cfg.project_list);
 		else
@@ -334,7 +312,6 @@ static void querystring_cb(const char *name, const char *value)
 		ctx.qry.search = xstrdup(value);
 	} else if (!strcmp(name, "h")) {
 		ctx.qry.head = xstrdup(value);
-		ctx.qry.has_symref = 1;
 	} else if (!strcmp(name, "id")) {
 		ctx.qry.oid = xstrdup(value);
 		ctx.qry.has_oid = 1;
@@ -375,16 +352,6 @@ static void prepare_context(void)
 {
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.cfg.agefile = "info/web/last-modified";
-	ctx.cfg.cache_size = 0;
-	ctx.cfg.cache_max_create_time = 5;
-	ctx.cfg.cache_root = CGIT_CACHE_ROOT;
-	ctx.cfg.cache_about_ttl = 15;
-	ctx.cfg.cache_snapshot_ttl = 5;
-	ctx.cfg.cache_repo_ttl = 5;
-	ctx.cfg.cache_root_ttl = 5;
-	ctx.cfg.cache_scanrc_ttl = 15;
-	ctx.cfg.cache_dynamic_ttl = 5;
-	ctx.cfg.cache_static_ttl = -1;
 	ctx.cfg.case_sensitive_sort = 1;
 	ctx.cfg.branch_sort = 0;
 	ctx.cfg.commit_sort = 0;
@@ -437,7 +404,6 @@ static void prepare_context(void)
 	ctx.page.filename = NULL;
 	ctx.page.size = 0;
 	ctx.page.modified = time(NULL);
-	ctx.page.expires = ctx.page.modified;
 	ctx.page.etag = NULL;
 	string_list_init_dup(&ctx.cfg.mimetypes);
 	if (ctx.env.script_name)
@@ -876,88 +842,6 @@ static void print_repolist(FILE *f, struct cgit_repolist *list, int start)
 		print_repo(f, &list->repos[i]);
 }
 
-/* Scan 'path' for git repositories, save the resulting repolist in 'cached_rc'
- * and return 0 on success.
- */
-static int generate_cached_repolist(const char *path, const char *cached_rc)
-{
-	struct strbuf locked_rc = STRBUF_INIT;
-	int result = 0;
-	int idx;
-	FILE *f;
-
-	strbuf_addf(&locked_rc, "%s.lock", cached_rc);
-	f = fopen(locked_rc.buf, "wx");
-	if (!f) {
-		/* Inform about the error unless the lockfile already existed,
-		 * since that only means we've got concurrent requests.
-		 */
-		result = errno;
-		if (result != EEXIST)
-			fprintf(stderr, "[cgit] Error opening %s: %s (%d)\n",
-				locked_rc.buf, strerror(result), result);
-		goto out;
-	}
-	idx = cgit_repolist.count;
-	if (ctx.cfg.project_list)
-		scan_projects(path, ctx.cfg.project_list);
-	else
-		scan_tree(path);
-	print_repolist(f, &cgit_repolist, idx);
-	if (rename(locked_rc.buf, cached_rc))
-		fprintf(stderr, "[cgit] Error renaming %s to %s: %s (%d)\n",
-			locked_rc.buf, cached_rc, strerror(errno), errno);
-	fclose(f);
-out:
-	strbuf_release(&locked_rc);
-	return result;
-}
-
-static void process_cached_repolist(const char *path)
-{
-	struct stat st;
-	struct strbuf cached_rc = STRBUF_INIT;
-	time_t age;
-	unsigned long hash;
-
-	hash = hash_str(path);
-	if (ctx.cfg.project_list)
-		hash += hash_str(ctx.cfg.project_list);
-	strbuf_addf(&cached_rc, "%s/rc-%8lx", ctx.cfg.cache_root, hash);
-
-	if (stat(cached_rc.buf, &st)) {
-		/* Nothing is cached, we need to scan without forking. And
-		 * if we fail to generate a cached repolist, we need to
-		 * invoke scan_tree manually.
-		 */
-		if (generate_cached_repolist(path, cached_rc.buf)) {
-			if (ctx.cfg.project_list)
-				scan_projects(path, ctx.cfg.project_list);
-			else
-				scan_tree(path);
-		}
-		goto out;
-	}
-
-	parse_configfile(cached_rc.buf, config_cb);
-
-	/* If the cached configfile hasn't expired, lets exit now */
-	age = time(NULL) - st.st_mtime;
-	if (age <= (ctx.cfg.cache_scanrc_ttl * 60))
-		goto out;
-
-	/* The cached repolist has been parsed, but it was old. So lets
-	 * rescan the specified path and generate a new cached repolist
-	 * in a child-process to avoid latency for the current request.
-	 */
-	if (fork())
-		goto out;
-
-	exit(generate_cached_repolist(path, cached_rc.buf));
-out:
-	strbuf_release(&cached_rc);
-}
-
 static void cgit_parse_args(int argc, const char **argv)
 {
 	int i;
@@ -973,18 +857,10 @@ static void cgit_parse_args(int argc, const char **argv)
 			printf("[+] ");
 #endif
 			printf("Lua scripting\n");
-#ifndef HAVE_LINUX_SENDFILE
-			printf("[-] ");
-#else
-			printf("[+] ");
-#endif
-			printf("Linux sendfile() usage\n");
 
 			exit(0);
 		}
-		if (skip_prefix(argv[i], "--cache=", &arg)) {
-			ctx.cfg.cache_root = xstrdup(arg);
-		} else if (!strcmp(argv[i], "--nohttp")) {
+		if (!strcmp(argv[i], "--nohttp")) {
 			ctx.env.no_http = "1";
 		} else if (skip_prefix(argv[i], "--query=", &arg)) {
 			ctx.qry.raw = xstrdup(arg);
@@ -994,7 +870,6 @@ static void cgit_parse_args(int argc, const char **argv)
 			ctx.qry.page = xstrdup(arg);
 		} else if (skip_prefix(argv[i], "--head=", &arg)) {
 			ctx.qry.head = xstrdup(arg);
-			ctx.qry.has_symref = 1;
 		} else if (skip_prefix(argv[i], "--oid=", &arg)) {
 			ctx.qry.oid = xstrdup(arg);
 			ctx.qry.has_oid = 1;
@@ -1026,29 +901,6 @@ static void cgit_parse_args(int argc, const char **argv)
 	}
 }
 
-static int calc_ttl(void)
-{
-	if (!ctx.repo)
-		return ctx.cfg.cache_root_ttl;
-
-	if (!ctx.qry.page)
-		return ctx.cfg.cache_repo_ttl;
-
-	if (!strcmp(ctx.qry.page, "about"))
-		return ctx.cfg.cache_about_ttl;
-
-	if (!strcmp(ctx.qry.page, "snapshot"))
-		return ctx.cfg.cache_snapshot_ttl;
-
-	if (ctx.qry.has_oid)
-		return ctx.cfg.cache_static_ttl;
-
-	if (ctx.qry.has_symref)
-		return ctx.cfg.cache_dynamic_ttl;
-
-	return ctx.cfg.cache_repo_ttl;
-}
-
 static NORETURN void cgit_die_routine(const char *msg, va_list params)
 {
 	cgit_vprint_error_page(400, "Bad request", msg, params);
@@ -1058,7 +910,6 @@ static NORETURN void cgit_die_routine(const char *msg, va_list params)
 int cmd_main(int argc, const char **argv)
 {
 	const char *path;
-	int err, ttl;
 
 	cgit_init_filters();
 	atexit(cgit_cleanup_filters);
@@ -1081,10 +932,9 @@ int cmd_main(int argc, const char **argv)
 	if (!ctx.cfg.virtual_root && ctx.cfg.script_name)
 		ctx.cfg.virtual_root = ensure_end(ctx.cfg.script_name, '/');
 
-	/* If no url parameter is specified on the querystring, lets
-	 * use PATH_INFO as url. This allows cgit to work with virtual
-	 * urls without the need for rewriterules in the webserver (as
-	 * long as PATH_INFO is included in the cache lookup key).
+	/* If no url parameter is specified on the querystring, use PATH_INFO
+	 * as url. This allows cgit to work with virtual urls without the need
+	 * for rewriterules in the webserver.
 	 */
 	path = ctx.env.path_info;
 	if (!ctx.qry.url && path) {
@@ -1105,18 +955,7 @@ int cmd_main(int argc, const char **argv)
 	 * auth_filter. If there is an auth_filter, the filter decides. */
 	authenticate_cookie();
 
-	ttl = calc_ttl();
-	if (ttl < 0)
-		ctx.page.expires += 10 * 365 * 24 * 60 * 60; /* 10 years */
-	else
-		ctx.page.expires += ttl * 60;
-	if (!ctx.env.authenticated || (ctx.env.request_method && !strcmp(ctx.env.request_method, "HEAD")))
-		ctx.cfg.cache_size = 0;
-	err = cache_process(ctx.cfg.cache_size, ctx.cfg.cache_root,
-			    ctx.qry.raw, ttl, process_request);
+	process_request();
 	cgit_cleanup_filters();
-	if (err)
-		cgit_print_error("Error processing page: %s (%d)",
-				 strerror(err), err);
-	return err;
+	return 0;
 }

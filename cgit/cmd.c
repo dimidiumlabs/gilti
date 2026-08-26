@@ -1,4 +1,5 @@
 /* SPDX-FileCopyrightText: cgit Development Team <cgit@lists.zx2c4.com>
+ * SPDX-FileCopyrightText: 2026 Nikolay Govorov
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
@@ -12,7 +13,6 @@
 
 #include "cgit.h"
 #include "cmd.h"
-#include "cache.h"
 #include "ui-shared.h"
 #include "ui-atom.h"
 #include "ui-blame.h"
@@ -109,14 +109,6 @@ static void log_fn(void)
 		       ctx.repo->commit_sort);
 }
 
-static void ls_cache_fn(void)
-{
-	ctx.page.mimetype = "text/plain";
-	ctx.page.filename = "ls-cache.txt";
-	cgit_print_http_headers();
-	cache_ls(ctx.cfg.cache_root);
-}
-
 static void objects_fn(void)
 {
 	cgit_clone_objects();
@@ -183,7 +175,6 @@ struct cgit_cmd *cgit_get_cmd(void)
 		def_cmd(diff, 1, 1, 0),
 		def_cmd(info, 1, 0, 1),
 		def_cmd(log, 1, 1, 0),
-		def_cmd(ls_cache, 0, 0, 0),
 		def_cmd(objects, 1, 0, 1),
 		def_cmd(patch, 1, 1, 0),
 		def_cmd(plain, 1, 0, 0),

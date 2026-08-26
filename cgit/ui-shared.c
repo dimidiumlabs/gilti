@@ -1,4 +1,5 @@
 /* SPDX-FileCopyrightText: cgit Development Team <cgit@lists.zx2c4.com>
+ * SPDX-FileCopyrightText: 2026 Nikolay Govorov
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
@@ -749,7 +750,6 @@ void cgit_print_http_headers(void)
 	if (!ctx.env.authenticated)
 		html("Cache-Control: no-cache, no-store\n");
 	htmlf("Last-Modified: %s\n", http_date(ctx.page.modified));
-	htmlf("Expires: %s\n", http_date(ctx.page.expires));
 	if (ctx.page.etag)
 		htmlf("ETag: \"%s\"\n", ctx.page.etag);
 	html("\n");
@@ -900,7 +900,6 @@ void cgit_print_error_page(int code, const char *msg, const char *fmt, ...)
 
 void cgit_vprint_error_page(int code, const char *msg, const char *fmt, va_list ap)
 {
-	ctx.page.expires = ctx.cfg.cache_dynamic_ttl;
 	ctx.page.status = code;
 	ctx.page.statusmsg = msg;
 	cgit_print_layout_start();

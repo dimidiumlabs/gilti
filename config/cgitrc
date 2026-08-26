@@ -9,12 +9,8 @@ css=/cgit.css
 logo=/cgit.png
 favicon=/favicon.ico
 
-cache-root=/var/cache/cgit
-cache-size=1000
-cache-dynamic-ttl=5
-cache-repo-ttl=5
-cache-root-ttl=5
-cache-scanrc-ttl=1
+# In-memory CGI response lifetime in seconds; zero disables the cache.
+cache=5
 
 enable-http-clone=0
 enable-index-owner=1

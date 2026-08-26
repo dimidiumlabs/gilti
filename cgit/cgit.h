@@ -1,4 +1,5 @@
 /* SPDX-FileCopyrightText: cgit Development Team <cgit@lists.zx2c4.com>
+ * SPDX-FileCopyrightText: 2026 Nikolay Govorov
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
@@ -170,7 +171,6 @@ struct reflist {
 };
 
 struct cgit_query {
-	int has_symref;
 	int has_oid;
 	int has_difftype;
 	char *raw;
@@ -199,7 +199,6 @@ struct cgit_query {
 
 struct cgit_config {
 	char *agefile;
-	char *cache_root;
 	char *clone_prefix;
 	char *clone_url;
 	char *favicon;
@@ -222,15 +221,6 @@ struct cgit_config {
 	char *repository_sort;
 	char *virtual_root;	/* Always ends with '/'. */
 	char *strict_export;
-	int cache_size;
-	int cache_dynamic_ttl;
-	int cache_max_create_time;
-	int cache_repo_ttl;
-	int cache_root_ttl;
-	int cache_scanrc_ttl;
-	int cache_static_ttl;
-	int cache_about_ttl;
-	int cache_snapshot_ttl;
 	int case_sensitive_sort;
 	int embedded;
 	int enable_filter_overrides;
@@ -282,7 +272,6 @@ struct cgit_config {
 
 struct cgit_page {
 	time_t modified;
-	time_t expires;
 	size_t size;
 	const char *mimetype;
 	const char *charset;

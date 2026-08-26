@@ -85,8 +85,6 @@ spec:
               readOnly: true
             - name: run
               mountPath: /run
-            - name: cache
-              mountPath: /var/cache/cgit
             - name: tmp
               mountPath: /tmp
       volumes:
@@ -103,9 +101,6 @@ spec:
         - name: run
           emptyDir:
             sizeLimit: {{ .Values.runtime.runSizeLimit }}
-        - name: cache
-          emptyDir:
-            sizeLimit: {{ .Values.runtime.cacheSizeLimit }}
         - name: tmp
           emptyDir:
             sizeLimit: {{ .Values.runtime.tmpSizeLimit }}

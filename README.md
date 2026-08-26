@@ -33,7 +33,6 @@ docker run --rm \
   --cap-add SETGID --cap-add SETUID --cap-add SYS_CHROOT \
   --tmpfs /run:rw,nosuid,nodev,noexec,size=32m \
   --tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m \
-  --tmpfs /var/cache/cgit:rw,nosuid,nodev,noexec,size=1g \
   -p 8080:8080 -p 2222:2222 \
   -v gilti-state:/var/lib/gilti \
   -v "$PWD/authorized_keys:/etc/gilti/authorized_keys:ro" \
