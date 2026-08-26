@@ -14,11 +14,6 @@ CGIT_CONFIG = /etc/cgitrc
 CGIT_CFLAGS += -DCGIT_CONFIG='"$(CGIT_CONFIG)"'
 CGIT_CFLAGS += -DCGIT_SCRIPT_NAME='"$(CGIT_SCRIPT_NAME)"'
 CGIT_CFLAGS += -DCGIT_VERSION='"$(CGIT_VERSION)"'
-CGIT_CFLAGS += -DNO_LUA
-
-ifeq ($(uname_S),Linux)
-	CGIT_LIBS += -ldl
-endif
 
 CGIT_OBJS := $(patsubst %.c,%.o,$(wildcard $(CGIT_PREFIX)*.c))
 cgit_dep_files := $(foreach f,$(CGIT_OBJS),$(dir $(f)).depend/$(notdir $(f)).d)
