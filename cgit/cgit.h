@@ -67,20 +67,7 @@ typedef enum {
 	DIFF_UNIFIED, DIFF_SSDIFF, DIFF_STATONLY
 } diff_type;
 
-typedef enum {
-	ABOUT, COMMIT, SOURCE, EMAIL, AUTH, OWNER
-} filter_type;
-
-struct cgit_filter {
-	int (*open)(struct cgit_filter *, va_list ap);
-	int (*close)(struct cgit_filter *);
-	void (*fprintfp)(struct cgit_filter *, FILE *, const char *prefix);
-	void (*cleanup)(struct cgit_filter *);
-	int argument_count;
-};
-
 struct cgit_exec_filter {
-	struct cgit_filter base;
 	char *cmd;
 	char **argv;
 	int old_stdout;
@@ -116,11 +103,6 @@ struct cgit_repo {
 	int branch_sort;
 	int commit_sort;
 	time_t mtime;
-	struct cgit_filter *about_filter;
-	struct cgit_filter *commit_filter;
-	struct cgit_filter *source_filter;
-	struct cgit_filter *email_filter;
-	struct cgit_filter *owner_filter;
 	struct string_list submodules;
 	int hide;
 	int ignore;
@@ -223,7 +205,6 @@ struct cgit_config {
 	char *strict_export;
 	int case_sensitive_sort;
 	int embedded;
-	int enable_filter_overrides;
 	int enable_follow_links;
 	int enable_http_clone;
 	int enable_index_links;
@@ -262,12 +243,6 @@ struct cgit_config {
 	int commit_sort;
 	struct string_list mimetypes;
 	struct string_list js;
-	struct cgit_filter *about_filter;
-	struct cgit_filter *commit_filter;
-	struct cgit_filter *source_filter;
-	struct cgit_filter *email_filter;
-	struct cgit_filter *owner_filter;
-	struct cgit_filter *auth_filter;
 };
 
 struct cgit_page {
@@ -293,10 +268,6 @@ struct cgit_environment {
 	const char *script_name;
 	const char *server_name;
 	const char *server_port;
-	const char *http_cookie;
-	const char *http_referer;
-	unsigned int content_length;
-	int authenticated;
 };
 
 struct cgit_context {
@@ -376,12 +347,9 @@ extern const struct object_id *cgit_snapshot_get_sig(const char *ref,
 						     const struct cgit_snapshot_format *f);
 extern const unsigned cgit_snapshot_format_bit(const struct cgit_snapshot_format *f);
 
-extern int cgit_open_filter(struct cgit_filter *filter, ...);
-extern int cgit_close_filter(struct cgit_filter *filter);
-extern void cgit_fprintf_filter(struct cgit_filter *filter, FILE *f, const char *prefix);
 extern void cgit_exec_filter_init(struct cgit_exec_filter *filter, char *cmd, char **argv);
-extern struct cgit_filter *cgit_new_filter(const char *cmd, filter_type filtertype);
-extern void cgit_cleanup_filters(void);
+extern int cgit_open_exec_filter(struct cgit_exec_filter *filter);
+extern int cgit_close_exec_filter(struct cgit_exec_filter *filter);
 
 extern void cgit_prepare_repo_env(struct cgit_repo * repo);
 

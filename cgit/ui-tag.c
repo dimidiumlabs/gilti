@@ -88,13 +88,11 @@ void cgit_print_tag(char *revname)
 		}
 		if (info->tagger) {
 			html("<tr><td>tagged by</td><td>");
-			cgit_open_filter(ctx.repo->email_filter, info->tagger_email, "tag");
 			html_txt(info->tagger);
 			if (info->tagger_email && !ctx.cfg.noplainemail) {
 				html(" ");
 				html_txt(info->tagger_email);
 			}
-			cgit_close_filter(ctx.repo->email_filter);
 			html("</td></tr>\n");
 		}
 		html("<tr><td>tagged object</td><td class='oid'>");

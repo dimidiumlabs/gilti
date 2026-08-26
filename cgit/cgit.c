@@ -113,18 +113,6 @@ void cgit_repo_config(struct cgit_repo *repo, const char *name, const char *valu
 		repo->hide = atoi(value);
 	else if (!strcmp(name, "ignore"))
 		repo->ignore = atoi(value);
-	else if (ctx.cfg.enable_filter_overrides) {
-		if (!strcmp(name, "about-filter"))
-			repo->about_filter = cgit_new_filter(value, ABOUT);
-		else if (!strcmp(name, "commit-filter"))
-			repo->commit_filter = cgit_new_filter(value, COMMIT);
-		else if (!strcmp(name, "source-filter"))
-			repo->source_filter = cgit_new_filter(value, SOURCE);
-		else if (!strcmp(name, "email-filter"))
-			repo->email_filter = cgit_new_filter(value, EMAIL);
-		else if (!strcmp(name, "owner-filter"))
-			repo->owner_filter = cgit_new_filter(value, OWNER);
-	}
 }
 
 static void config_cb(const char *name, const char *value)
@@ -175,8 +163,6 @@ static void config_cb(const char *name, const char *value)
 		ctx.cfg.noheader = atoi(value);
 	else if (!strcmp(name, "snapshots"))
 		ctx.cfg.snapshots = cgit_parse_snapshots_mask(value);
-	else if (!strcmp(name, "enable-filter-overrides"))
-		ctx.cfg.enable_filter_overrides = atoi(value);
 	else if (!strcmp(name, "enable-follow-links"))
 		ctx.cfg.enable_follow_links = atoi(value);
 	else if (!strcmp(name, "enable-http-clone"))
@@ -207,16 +193,6 @@ static void config_cb(const char *name, const char *value)
 		ctx.cfg.max_stats = cgit_find_stats_period(value, NULL);
 	else if (!strcmp(name, "case-sensitive-sort"))
 		ctx.cfg.case_sensitive_sort = atoi(value);
-	else if (!strcmp(name, "about-filter"))
-		ctx.cfg.about_filter = cgit_new_filter(value, ABOUT);
-	else if (!strcmp(name, "commit-filter"))
-		ctx.cfg.commit_filter = cgit_new_filter(value, COMMIT);
-	else if (!strcmp(name, "email-filter"))
-		ctx.cfg.email_filter = cgit_new_filter(value, EMAIL);
-	else if (!strcmp(name, "owner-filter"))
-		ctx.cfg.owner_filter = cgit_new_filter(value, OWNER);
-	else if (!strcmp(name, "auth-filter"))
-		ctx.cfg.auth_filter = cgit_new_filter(value, AUTH);
 	else if (!strcmp(name, "embedded"))
 		ctx.cfg.embedded = atoi(value);
 	else if (!strcmp(name, "max-atom-items"))
@@ -249,8 +225,6 @@ static void config_cb(const char *name, const char *value)
 		ctx.cfg.repository_sort = strdup_first_line(value);
 	else if (!strcmp(name, "section-sort"))
 		ctx.cfg.section_sort = atoi(value);
-	else if (!strcmp(name, "source-filter"))
-		ctx.cfg.source_filter = cgit_new_filter(value, SOURCE);
 	else if (!strcmp(name, "summary-log"))
 		ctx.cfg.summary_log = atoi(value);
 	else if (!strcmp(name, "summary-branches"))
@@ -395,10 +369,6 @@ static void prepare_context(void)
 	ctx.env.script_name = getenv("SCRIPT_NAME");
 	ctx.env.server_name = getenv("SERVER_NAME");
 	ctx.env.server_port = getenv("SERVER_PORT");
-	ctx.env.http_cookie = getenv("HTTP_COOKIE");
-	ctx.env.http_referer = getenv("HTTP_REFERER");
-	ctx.env.content_length = getenv("CONTENT_LENGTH") ? strtoul(getenv("CONTENT_LENGTH"), NULL, 10) : 0;
-	ctx.env.authenticated = 0;
 	ctx.page.mimetype = "text/html";
 	ctx.page.charset = PAGE_ENCODING;
 	ctx.page.filename = NULL;
@@ -620,86 +590,10 @@ static int prepare_repo_cmd(int nongit)
 	return 0;
 }
 
-static inline void open_auth_filter(const char *function)
-{
-	cgit_open_filter(ctx.cfg.auth_filter, function,
-		ctx.env.http_cookie ? ctx.env.http_cookie : "",
-		ctx.env.request_method ? ctx.env.request_method : "",
-		ctx.env.query_string ? ctx.env.query_string : "",
-		ctx.env.http_referer ? ctx.env.http_referer : "",
-		ctx.env.path_info ? ctx.env.path_info : "",
-		ctx.env.http_host ? ctx.env.http_host : "",
-		ctx.env.https ? ctx.env.https : "",
-		ctx.qry.repo ? ctx.qry.repo : "",
-		ctx.qry.page ? ctx.qry.page : "",
-		cgit_currentfullurl(),
-		cgit_loginurl());
-}
-
-/* We intentionally keep this rather small, instead of looping and
- * feeding it to the filter a couple bytes at a time. This way, the
- * filter itself does not need to handle any denial of service or
- * buffer bloat issues. If this winds up being too small, people
- * will complain on the mailing list, and we'll increase it as needed. */
-#define MAX_AUTHENTICATION_POST_BYTES 4096
-/* The filter is expected to spit out "Status: " and all headers. */
-static inline void authenticate_post(void)
-{
-	char buffer[MAX_AUTHENTICATION_POST_BYTES];
-	ssize_t len;
-
-	open_auth_filter("authenticate-post");
-	len = ctx.env.content_length;
-	if (len > MAX_AUTHENTICATION_POST_BYTES)
-		len = MAX_AUTHENTICATION_POST_BYTES;
-	if ((len = read(STDIN_FILENO, buffer, len)) < 0)
-		die_errno("Could not read POST from stdin");
-	if (write(STDOUT_FILENO, buffer, len) < 0)
-		die_errno("Could not write POST to stdout");
-	cgit_close_filter(ctx.cfg.auth_filter);
-	exit(0);
-}
-
-static inline void authenticate_cookie(void)
-{
-	/* If we don't have an auth_filter, consider all cookies valid, and thus return early. */
-	if (!ctx.cfg.auth_filter) {
-		ctx.env.authenticated = 1;
-		return;
-	}
-
-	/* If we're having something POST'd to /login, we're authenticating POST,
-	 * instead of the cookie, so call authenticate_post and bail out early.
-	 * This pattern here should match /?p=login with POST. */
-	if (ctx.env.request_method && ctx.qry.page && !ctx.repo && \
-	    !strcmp(ctx.env.request_method, "POST") && !strcmp(ctx.qry.page, "login")) {
-		authenticate_post();
-		return;
-	}
-
-	/* If we've made it this far, we're authenticating the cookie for real, so do that. */
-	open_auth_filter("authenticate-cookie");
-	ctx.env.authenticated = cgit_close_filter(ctx.cfg.auth_filter);
-}
-
 static void process_request(void)
 {
 	struct cgit_cmd *cmd;
 	int nongit = 0;
-
-	/* If we're not yet authenticated, no matter what page we're on,
-	 * display the authentication body from the auth_filter. This should
-	 * never be cached. */
-	if (!ctx.env.authenticated) {
-		ctx.page.title = "Authentication Required";
-		cgit_print_http_headers();
-		cgit_print_docstart();
-		cgit_print_pageheader();
-		open_auth_filter("body");
-		cgit_close_filter(ctx.cfg.auth_filter);
-		cgit_print_docend();
-		return;
-	}
 
 	if (ctx.repo)
 		prepare_repo_env(&nongit);
@@ -794,16 +688,6 @@ static void print_repo(FILE *f, struct cgit_repo *repo)
 	        repo->enable_log_filecount);
 	fprintf(f, "repo.enable-log-linecount=%d\n",
 	        repo->enable_log_linecount);
-	if (repo->about_filter && repo->about_filter != ctx.cfg.about_filter)
-		cgit_fprintf_filter(repo->about_filter, f, "repo.about-filter=");
-	if (repo->commit_filter && repo->commit_filter != ctx.cfg.commit_filter)
-		cgit_fprintf_filter(repo->commit_filter, f, "repo.commit-filter=");
-	if (repo->source_filter && repo->source_filter != ctx.cfg.source_filter)
-		cgit_fprintf_filter(repo->source_filter, f, "repo.source-filter=");
-	if (repo->email_filter && repo->email_filter != ctx.cfg.email_filter)
-		cgit_fprintf_filter(repo->email_filter, f, "repo.email-filter=");
-	if (repo->owner_filter && repo->owner_filter != ctx.cfg.owner_filter)
-		cgit_fprintf_filter(repo->owner_filter, f, "repo.owner-filter=");
 	if (repo->snapshots != ctx.cfg.snapshots) {
 		char *tmp = build_snapshot_setting(repo->snapshots);
 		fprintf(f, "repo.snapshots=%s\n", tmp ? tmp : "");
@@ -904,7 +788,6 @@ int cmd_main(int argc, const char **argv)
 {
 	const char *path;
 
-	atexit(cgit_cleanup_filters);
 	set_die_routine(cgit_die_routine);
 
 	prepare_context();
@@ -942,12 +825,6 @@ int cmd_main(int argc, const char **argv)
 		cgit_parse_url(ctx.qry.url);
 	}
 
-	/* Before we go any further, we set ctx.env.authenticated by checking to see
-	 * if the supplied cookie is valid. All cookies are valid if there is no
-	 * auth_filter. If there is an auth_filter, the filter decides. */
-	authenticate_cookie();
-
 	process_request();
-	cgit_cleanup_filters();
 	return 0;
 }

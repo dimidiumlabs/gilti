@@ -79,11 +79,6 @@ struct cgit_repo *cgit_add_repo(const char *url)
 	ret->module_link = ctx.cfg.module_link;
 	ret->readme = ctx.cfg.readme;
 	ret->mtime = -1;
-	ret->about_filter = ctx.cfg.about_filter;
-	ret->commit_filter = ctx.cfg.commit_filter;
-	ret->source_filter = ctx.cfg.source_filter;
-	ret->email_filter = ctx.cfg.email_filter;
-	ret->owner_filter = ctx.cfg.owner_filter;
 	ret->clone_url = ctx.cfg.clone_url;
 	ret->submodules.strdup_strings = 1;
 	ret->hide = ret->ignore = 0;

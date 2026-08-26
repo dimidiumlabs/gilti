@@ -54,25 +54,21 @@ void cgit_print_commit(char *hex, const char *prefix)
 	cgit_print_diff_ctrls();
 	html("<table summary='commit info' class='commit-info'>\n");
 	html("<tr><th>author</th><td>");
-	cgit_open_filter(ctx.repo->email_filter, info->author_email, "commit");
 	html_txt(info->author);
 	if (!ctx.cfg.noplainemail) {
 		html(" ");
 		html_txt(info->author_email);
 	}
-	cgit_close_filter(ctx.repo->email_filter);
 	html("</td><td class='right'>");
 	html_txt(show_date(info->author_date, info->author_tz,
 				cgit_date_mode(DATE_ISO8601)));
 	html("</td></tr>\n");
 	html("<tr><th>committer</th><td>");
-	cgit_open_filter(ctx.repo->email_filter, info->committer_email, "commit");
 	html_txt(info->committer);
 	if (!ctx.cfg.noplainemail) {
 		html(" ");
 		html_txt(info->committer_email);
 	}
-	cgit_close_filter(ctx.repo->email_filter);
 	html("</td><td class='right'>");
 	html_txt(show_date(info->committer_date, info->committer_tz,
 				cgit_date_mode(DATE_ISO8601)));
@@ -122,22 +118,16 @@ void cgit_print_commit(char *hex, const char *prefix)
 	}
 	html("</table>\n");
 	html("<div class='commit-subject'>");
-	cgit_open_filter(ctx.repo->commit_filter);
 	html_txt(info->subject);
-	cgit_close_filter(ctx.repo->commit_filter);
 	show_commit_decorations(commit);
 	html("</div>");
 	html("<div class='commit-msg'>");
-	cgit_open_filter(ctx.repo->commit_filter);
 	html_txt(info->msg);
-	cgit_close_filter(ctx.repo->commit_filter);
 	html("</div>");
 	if (notes.len != 0) {
 		html("<div class='notes-header'>Notes</div>");
 		html("<div class='notes'>");
-		cgit_open_filter(ctx.repo->commit_filter);
 		html_txt(notes.buf);
-		cgit_close_filter(ctx.repo->commit_filter);
 		html("</div>");
 		html("<div class='notes-footer'></div>");
 	}

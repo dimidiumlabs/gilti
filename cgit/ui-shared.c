@@ -126,14 +126,6 @@ const char *cgit_rooturl(void)
 		return ctx.cfg.script_name;
 }
 
-const char *cgit_loginurl(void)
-{
-	static const char *login_url;
-	if (!login_url)
-		login_url = fmtalloc("%s?p=login", cgit_rooturl());
-	return login_url;
-}
-
 char *cgit_repourl(const char *reponame)
 {
 	if (ctx.cfg.virtual_root)
@@ -747,8 +739,6 @@ void cgit_print_http_headers(void)
 		html_header_arg_in_quotes(ctx.page.filename);
 		html("\"\n");
 	}
-	if (!ctx.env.authenticated)
-		html("Cache-Control: no-cache, no-store\n");
 	htmlf("Last-Modified: %s\n", http_date(ctx.page.modified));
 	if (ctx.page.etag)
 		htmlf("ETag: \"%s\"\n", ctx.page.etag);
@@ -1045,20 +1035,18 @@ static void print_header(void)
 		cgit_index_link("index", NULL, NULL, NULL, NULL, 0, 1);
 		html(" : ");
 		cgit_summary_link(ctx.repo->name, NULL, NULL, NULL);
-		if (ctx.env.authenticated) {
-			html("</td><td class='form'>");
-			html("<form method='get'>\n");
-			cgit_add_hidden_formfields(0, 1, ctx.qry.page);
-			html("<select name='h' onchange='this.form.submit();'>\n");
-			refs_for_each_branch_ref(get_main_ref_store(the_repository),
+		html("</td><td class='form'>");
+		html("<form method='get'>\n");
+		cgit_add_hidden_formfields(0, 1, ctx.qry.page);
+		html("<select name='h' onchange='this.form.submit();'>\n");
+		refs_for_each_branch_ref(get_main_ref_store(the_repository),
+					 print_branch_option, ctx.qry.head);
+		if (ctx.repo->enable_remote_branches)
+			refs_for_each_remote_ref(get_main_ref_store(the_repository),
 						 print_branch_option, ctx.qry.head);
-			if (ctx.repo->enable_remote_branches)
-				refs_for_each_remote_ref(get_main_ref_store(the_repository),
-							 print_branch_option, ctx.qry.head);
-			html("</select> ");
-			html("<input type='submit' value='switch'/>");
-			html("</form>");
-		}
+		html("</select> ");
+		html("<input type='submit' value='switch'/>");
+		html("</form>");
 	} else
 		html_txt(ctx.cfg.root_title);
 	html("</td></tr>\n");
@@ -1067,13 +1055,7 @@ static void print_header(void)
 	if (ctx.repo) {
 		html_txt(ctx.repo->desc);
 		html("</td><td class='sub right'>");
-		if (ctx.repo->owner_filter) {
-			cgit_open_filter(ctx.repo->owner_filter);
-			html_txt(ctx.repo->owner);
-			cgit_close_filter(ctx.repo->owner_filter);
-		} else {
-			html_txt(ctx.repo->owner);
-		}
+		html_txt(ctx.repo->owner);
 	} else {
 		if (ctx.cfg.root_desc)
 			html_txt(ctx.cfg.root_desc);
@@ -1084,11 +1066,11 @@ static void print_header(void)
 void cgit_print_pageheader(void)
 {
 	html("<div id='cgit'>");
-	if (!ctx.env.authenticated || !ctx.cfg.noheader)
+	if (!ctx.cfg.noheader)
 		print_header();
 
 	html("<table class='tabs'><tr><td>\n");
-	if (ctx.env.authenticated && ctx.repo) {
+	if (ctx.repo) {
 		if (ctx.repo->readme.nr)
 			reporevlink("about", "about", NULL,
 				    hc("about"), ctx.qry.head, NULL,
@@ -1139,7 +1121,7 @@ void cgit_print_pageheader(void)
 		html("'/>\n");
 		html("<input type='submit' value='search'/>\n");
 		html("</form>\n");
-	} else if (ctx.env.authenticated) {
+	} else {
 		char *currenturl = cgit_currenturl();
 		site_link(NULL, "index", NULL, hc("repolist"), NULL, NULL, 0, 1);
 		if (ctx.cfg.root_readme)
@@ -1157,7 +1139,7 @@ void cgit_print_pageheader(void)
 		free(currenturl);
 	}
 	html("</td></tr></table>\n");
-	if (ctx.env.authenticated && ctx.repo && ctx.qry.vpath) {
+	if (ctx.repo && ctx.qry.vpath) {
 		html("<div class='path'>");
 		html("path: ");
 		cgit_print_path_crumbs(ctx.qry.vpath);

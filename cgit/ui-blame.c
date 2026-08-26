@@ -114,7 +114,7 @@ struct walk_tree_context {
 };
 
 static void print_object(const struct object_id *oid, const char *path,
-			 const char *basename, const char *rev)
+			 const char *rev)
 {
 	enum object_type type;
 	char *buf;
@@ -218,15 +218,7 @@ static void print_object(const struct object_id *oid, const char *path,
 
 	/* Lines */
 	html("<pre><code>");
-	if (ctx.repo->source_filter) {
-		char *filter_arg = xstrdup(basename);
-		cgit_open_filter(ctx.repo->source_filter, filter_arg);
-		html_raw(buf, size);
-		cgit_close_filter(ctx.repo->source_filter);
-		free(filter_arg);
-	} else {
-		html_txt(buf);
-	}
+	html_txt(buf);
 	html("</code></pre>");
 
 	html("</div></td>\n");
@@ -249,8 +241,7 @@ static int walk_tree(const struct object_id *oid, struct strbuf *base,
 			struct strbuf buffer = STRBUF_INIT;
 			strbuf_addbuf(&buffer, base);
 			strbuf_addstr(&buffer, pathname);
-			print_object(oid, buffer.buf, pathname,
-				     walk_tree_ctx->curr_rev);
+			print_object(oid, buffer.buf, walk_tree_ctx->curr_rev);
 			strbuf_release(&buffer);
 			walk_tree_ctx->state = 1;
 		} else if (S_ISDIR(mode)) {

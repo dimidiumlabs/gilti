@@ -23,7 +23,7 @@ struct walk_tree_context {
 	int state;
 };
 
-static void print_text_buffer(const char *name, char *buf, unsigned long size)
+static void print_text_buffer(char *buf, unsigned long size)
 {
 	unsigned long lineno, idx;
 	const char *numberfmt = "<a id='n%1$d' href='#n%1$d'>%1$d</a>\n";
@@ -47,17 +47,6 @@ static void print_text_buffer(const char *name, char *buf, unsigned long size)
 	}
 	else {
 		html("<tr>\n");
-	}
-
-	if (ctx.repo->source_filter) {
-		char *filter_arg = xstrdup(name);
-		html("<td class='lines'><pre><code>");
-		cgit_open_filter(ctx.repo->source_filter, filter_arg);
-		html_raw(buf, size);
-		cgit_close_filter(ctx.repo->source_filter);
-		free(filter_arg);
-		html("</code></pre></td></tr></table>\n");
-		return;
 	}
 
 	html("<td class='lines'><pre><code>");
@@ -90,7 +79,7 @@ static void print_binary_buffer(char *buf, unsigned long size)
 	html("</table>\n");
 }
 
-static void print_object(const struct object_id *oid, const char *path, const char *basename, const char *rev)
+static void print_object(const struct object_id *oid, const char *path, const char *rev)
 {
 	enum object_type type;
 	char *buf;
@@ -134,7 +123,7 @@ static void print_object(const struct object_id *oid, const char *path, const ch
 	if (is_binary)
 		print_binary_buffer(buf, size);
 	else
-		print_text_buffer(basename, buf, size);
+		print_text_buffer(buf, size);
 
 	free(buf);
 }
@@ -344,7 +333,7 @@ static int walk_tree(const struct object_id *oid, struct strbuf *base,
 			return READ_TREE_RECURSIVE;
 		} else {
 			walk_tree_ctx->state = 2;
-			print_object(oid, buffer.buf, pathname, walk_tree_ctx->curr_rev);
+			print_object(oid, buffer.buf, walk_tree_ctx->curr_rev);
 			strbuf_release(&buffer);
 			return 0;
 		}

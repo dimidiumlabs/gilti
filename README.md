@@ -13,8 +13,8 @@ platforms but aren't ready to host complex services like Forgejo.
 - Every configured key has read/write access to every repository and may create
   a repository by pushing to its name for the first time.
 - cgit is anonymous and read-only; every repository is publicly visible.
-- Smart HTTP, password authentication, shells, forwarding, tunnels, and cgit
-  filters are disabled.
+- Smart HTTP, password authentication, shells, forwarding, and tunnels are
+  disabled; cgit filters are not supported.
 - Gilti is a single-replica service backed by one POSIX persistent volume. It is
   not an HA system.
 
