@@ -8,11 +8,7 @@ include Makefile
 
 CGIT_PREFIX = ../
 CGIT_VERSION = v1.3.1
-CGIT_SCRIPT_NAME = gilti-cgit
-CGIT_CONFIG = /etc/cgitrc
 
-CGIT_CFLAGS += -DCGIT_CONFIG='"$(CGIT_CONFIG)"'
-CGIT_CFLAGS += -DCGIT_SCRIPT_NAME='"$(CGIT_SCRIPT_NAME)"'
 CGIT_CFLAGS += -DCGIT_VERSION='"$(CGIT_VERSION)"'
 
 CGIT_OBJS := $(patsubst %.c,%.o,$(wildcard $(CGIT_PREFIX)*.c))

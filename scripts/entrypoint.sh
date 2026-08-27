@@ -8,7 +8,6 @@ umask 077
 
 state=/var/lib/gilti
 run_dir=/run/gilti
-http_run_dir=$run_dir/http
 ssh_run_dir=$run_dir/ssh
 
 git_home=$state/git
@@ -30,10 +29,8 @@ prepare_runtime() {
     install -d -m 0750 -o git -g git "$git_home" "$repositories"
     install -d -m 0700 -o root -g root "$host_key_dir"
     install -d -m 0755 -o root -g root "$run_dir"
-    install -d -m 0750 -o git -g git "$http_run_dir"
     install -d -m 0750 -o root -g git "$ssh_run_dir"
-    rm -f "$ssh_run_dir/sshd.pid" "$http_run_dir"/cgitrc.* \
-        "$authorized_keys" "$authorized_keys".*
+    rm -f "$ssh_run_dir/sshd.pid" "$authorized_keys" "$authorized_keys".*
 }
 
 prepare_authorized_keys() {

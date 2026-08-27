@@ -18,30 +18,6 @@ metadata:
   labels:
     {{- include "gilti.labels" . | nindent 4 }}
 data:
-  cgitrc: |
-    root-title={{ .Values.cgit.rootTitle }}
-    root-desc={{ .Values.cgit.rootDescription }}
-    virtual-root=/
-    css=/cgit.css
-    logo=/cgit.png
-    favicon=/favicon.ico
-    # Gilti consumes this setting before invoking cgit.
-    cache={{ .Values.cgit.cache }}
-    enable-http-clone=0
-    enable-index-owner=1
-    enable-index-links=1
-    enable-commit-graph=1
-    enable-log-filecount=1
-    enable-log-linecount=1
-    enable-tree-linenumbers=1
-    snapshots=
-    remove-suffix=1
-    readme=:README.md
-    readme=:README
-    {{- with .Values.cgit.clonePrefix }}
-    clone-prefix={{ . }}
-    {{- end }}
-    scan-path=/var/lib/gilti/git/repositories
   authorized_keys: |
     {{- range .Values.ssh.authorizedKeys }}
     {{ . }}

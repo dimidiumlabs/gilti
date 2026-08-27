@@ -12,9 +12,7 @@
 
 #include "cgit.h"
 #include "scan-tree.h"
-#include "configfile.h"
 #include "html.h"
-#include <config.h>
 
 /* return 1 if path contains a objects/ directory and a HEAD file */
 static int is_git_dir(const char *path)
@@ -50,32 +48,6 @@ out:
 	return result;
 }
 
-static struct cgit_repo *repo;
-
-static void scan_tree_repo_config(const char *name, const char *value)
-{
-	cgit_repo_config(repo, name, value);
-}
-
-static int gitconfig_config(const char *key, const char *value,
-		const __attribute__((unused)) struct config_context *ctx, void *cb)
-{
-	const char *name;
-
-	if (!strcmp(key, "gitweb.owner"))
-		cgit_repo_config(repo, "owner", value);
-	else if (!strcmp(key, "gitweb.description"))
-		cgit_repo_config(repo, "desc", value);
-	else if (!strcmp(key, "gitweb.category"))
-		cgit_repo_config(repo, "section", value);
-	else if (!strcmp(key, "gitweb.homepage"))
-		cgit_repo_config(repo, "homepage", value);
-	else if (skip_prefix(key, "cgit.", &name))
-		cgit_repo_config(repo, name, value);
-
-	return 0;
-}
-
 static char *xstrrchr(char *s, char *from, int c)
 {
 	while (from >= s && *from != c)
@@ -87,6 +59,7 @@ static void add_repo(const char *base, struct strbuf *path)
 {
 	struct stat st;
 	struct passwd *pwd;
+	struct cgit_repo *repo;
 	size_t pathlen;
 	struct strbuf rel = STRBUF_INIT;
 	char *p, *slash;
@@ -125,11 +98,6 @@ static void add_repo(const char *base, struct strbuf *path)
 		strbuf_setlen(&rel, rel.len - 1);
 
 	repo = cgit_add_repo(rel.buf);
-	if (ctx.cfg.enable_git_config) {
-		strbuf_addstr(path, "config");
-		git_config_from_file(gitconfig_config, path->buf, NULL);
-		strbuf_setlen(path, pathlen);
-	}
 
 	if (ctx.cfg.remove_suffix) {
 		size_t urllen;
@@ -179,10 +147,6 @@ static void add_repo(const char *base, struct strbuf *path)
 			}
 		}
 	}
-
-	strbuf_addstr(path, "cgitrc");
-	if (!stat(path->buf, &st))
-		parse_configfile(path->buf, &scan_tree_repo_config);
 
 	strbuf_release(&rel);
 }
@@ -238,33 +202,6 @@ static void scan_path(const char *base, const char *path)
 end:
 	strbuf_release(&pathbuf);
 	closedir(dir);
-}
-
-void scan_projects(const char *path, const char *projectsfile)
-{
-	struct strbuf line = STRBUF_INIT;
-	FILE *projects;
-	int err;
-
-	projects = fopen(projectsfile, "r");
-	if (!projects) {
-		fprintf(stderr, "Error opening projectsfile %s: %s (%d)\n",
-			projectsfile, strerror(errno), errno);
-		return;
-	}
-	while (strbuf_getline(&line, projects) != EOF) {
-		if (!line.len)
-			continue;
-		strbuf_insert(&line, 0, "/", 1);
-		strbuf_insert(&line, 0, path, strlen(path));
-		scan_path(path, line.buf);
-	}
-	if ((err = ferror(projects))) {
-		fprintf(stderr, "Error reading from projectsfile %s: %s (%d)\n",
-			projectsfile, strerror(err), err);
-	}
-	fclose(projects);
-	strbuf_release(&line);
 }
 
 void scan_tree(const char *path)

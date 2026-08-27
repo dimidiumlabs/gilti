@@ -86,8 +86,8 @@ if "$engine" exec "$name" test -e /var/cache/cgit; then
     echo 'legacy cgit disk-cache directory exists' >&2
     exit 1
 fi
-if "$engine" exec "$name" sh -c 'grep -q "^cache=" /run/gilti/http/cgitrc.*'; then
-    echo 'Gilti cache parameter leaked into the cgit configuration' >&2
+if "$engine" exec "$name" test -e /etc/cgitrc; then
+    echo 'legacy cgit configuration file is installed' >&2
     exit 1
 fi
 sshd_config=$("$engine" exec "$name" /usr/sbin/sshd -T -f /etc/ssh/sshd_config \

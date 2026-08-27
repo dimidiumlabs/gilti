@@ -33,7 +33,6 @@ RUN apk add --no-cache \
       /var/lib/gilti/git /var/lib/gilti/git/repositories && \
     install -d -m 0700 -o root -g root /var/lib/gilti/ssh && \
     install -d -m 0755 -o root -g root /run/gilti && \
-    install -d -m 0750 -o git -g git /run/gilti/http && \
     install -d -m 0750 -o root -g git /run/gilti/ssh && \
     install -d -m 0755 /etc/gilti && \
     rm -rf /var/cache/apk/*
@@ -53,7 +52,6 @@ COPY --chown=root:root \
     .container/binary-${TARGETARCH}/COPYING.cgit.txt \
     .container/binary-${TARGETARCH}/COPYING.git.txt \
     /usr/share/doc/gilti-cgit/
-COPY --chown=root:root config/cgitrc /etc/cgitrc
 COPY --chown=root:root config/sshd_config /etc/ssh/sshd_config
 COPY --chown=root:root --chmod=0755 scripts/entrypoint.sh /usr/local/bin/gilti-entrypoint
 COPY --chown=root:root LICENSE README.md /usr/share/doc/gilti/

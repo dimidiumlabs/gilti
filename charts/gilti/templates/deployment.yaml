@@ -47,6 +47,15 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: GILTI_CGIT_ROOT_TITLE
+              value: {{ .Values.cgit.rootTitle | quote }}
+            - name: GILTI_CGIT_ROOT_DESCRIPTION
+              value: {{ .Values.cgit.rootDescription | quote }}
+            - name: GILTI_CGIT_CLONE_PREFIX
+              value: {{ .Values.cgit.clonePrefix | quote }}
+            - name: GILTI_CGIT_CACHE
+              value: {{ .Values.cgit.cache | quote }}
           ports:
             - name: http
               containerPort: 8080
@@ -75,10 +84,6 @@ spec:
           volumeMounts:
             - name: state
               mountPath: /var/lib/gilti
-            - name: config
-              mountPath: /etc/cgitrc
-              subPath: cgitrc
-              readOnly: true
             - name: config
               mountPath: /etc/gilti/authorized_keys
               subPath: authorized_keys

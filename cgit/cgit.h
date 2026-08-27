@@ -59,7 +59,6 @@
 
 #define BIT(x)	(1U << (x))
 
-typedef void (*configfn)(const char *name, const char *value);
 typedef void (*filepair_fn)(struct diff_filepair *pair);
 typedef void (*linediff_fn)(char *line, int len);
 
@@ -191,7 +190,6 @@ struct cgit_config {
 	char *logo_link;
 	char *mimetype_file;
 	char *module_link;
-	char *project_list;
 	struct string_list readme;
 	struct string_list css;
 	char *robots;
@@ -217,12 +215,10 @@ struct cgit_config {
 	int enable_subject_links;
 	int enable_html_serving;
 	int enable_tree_linenumbers;
-	int enable_git_config;
 	int local_time;
 	int max_atom_items;
 	int max_repo_count;
 	int max_commit_count;
-	int max_lock_attempts;
 	int max_msg_len;
 	int max_repodesc_len;
 	int max_blob_size;
@@ -258,14 +254,11 @@ struct cgit_page {
 };
 
 struct cgit_environment {
-	const char *cgit_config;
 	const char *http_host;
 	const char *https;
-	const char *no_http;
 	const char *path_info;
 	const char *query_string;
 	const char *request_method;
-	const char *script_name;
 	const char *server_name;
 	const char *server_port;
 };
@@ -295,8 +288,6 @@ extern const struct cgit_snapshot_format cgit_snapshot_formats[];
 extern char *cgit_default_repo_desc;
 extern struct cgit_repo *cgit_add_repo(const char *url);
 extern struct cgit_repo *cgit_get_repoinfo(const char *url);
-extern void cgit_repo_config(struct cgit_repo *repo, const char *name,
-			     const char *value);
 
 extern int chk_zero(int result, char *msg);
 extern int chk_positive(int result, char *msg);

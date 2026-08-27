@@ -722,9 +722,6 @@ void cgit_print_age(time_t t, int tz, time_t max_relative)
 
 void cgit_print_http_headers(void)
 {
-	if (ctx.env.no_http && !strcmp(ctx.env.no_http, "1"))
-		return;
-
 	if (ctx.page.status)
 		htmlf("Status: %d %s\n", ctx.page.status, ctx.page.statusmsg);
 	if (ctx.page.mimetype && ctx.page.charset)

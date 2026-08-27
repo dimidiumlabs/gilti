@@ -38,7 +38,7 @@ int chk_non_negative(int result, char *msg)
 	return result;
 }
 
-char *cgit_default_repo_desc = "[no description]";
+char *cgit_default_repo_desc;
 struct cgit_repo *cgit_add_repo(const char *url)
 {
 	struct cgit_repo *ret;

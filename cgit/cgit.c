@@ -15,254 +15,52 @@
 
 #include "cgit.h"
 #include "cmd.h"
-#include "configfile.h"
 #include "html.h"
 #include "ui-shared.h"
-#include "ui-stats.h"
 #include "ui-blob.h"
 #include "ui-summary.h"
 #include "scan-tree.h"
 
 const char *cgit_version = CGIT_VERSION;
 
-__attribute__((constructor))
-static void constructor_environment()
+static const char *config_value(const char *name)
 {
-	/* Do not look in /etc/ for gitconfig and gitattributes. */
-	setenv("GIT_CONFIG_NOSYSTEM", "1", 1);
-	setenv("GIT_ATTR_NOSYSTEM", "1", 1);
-	unsetenv("HOME");
-	unsetenv("XDG_CONFIG_HOME");
+	const char *value = getenv(name);
+
+	if (!value) {
+		fprintf(stderr, "gilti-cgit: missing required environment variable %s\n",
+			name);
+		exit(1);
+	}
+	return value;
 }
 
-static void add_mimetype(const char *name, const char *value)
+static char *config_string(const char *name)
 {
-	struct string_list_item *item;
-
-	item = string_list_insert(&ctx.cfg.mimetypes, name);
-	item->util = xstrdup(value);
+	return xstrdup(config_value(name));
 }
 
-void cgit_repo_config(struct cgit_repo *repo, const char *name, const char *value)
+static char *config_optional_string(const char *name)
 {
-	const char *path;
-	struct string_list_item *item;
+	const char *value = config_value(name);
 
-	if (!strcmp(name, "name"))
-		repo->name = strdup_first_line(value);
-	else if (!strcmp(name, "clone-url"))
-		repo->clone_url = strdup_first_line(value);
-	else if (!strcmp(name, "desc"))
-		repo->desc = strdup_first_line(value);
-	else if (!strcmp(name, "owner"))
-		repo->owner = strdup_first_line(value);
-	else if (!strcmp(name, "homepage"))
-		repo->homepage = strdup_first_line(value);
-	else if (!strcmp(name, "defbranch"))
-		repo->defbranch = strdup_first_line(value);
-	else if (!strcmp(name, "extra-head-content"))
-		repo->extra_head_content = strdup_first_line(value);
-	else if (!strcmp(name, "snapshots"))
-		repo->snapshots = ctx.cfg.snapshots & cgit_parse_snapshots_mask(value);
-	else if (!strcmp(name, "enable-blame"))
-		repo->enable_blame = atoi(value);
-	else if (!strcmp(name, "enable-commit-graph"))
-		repo->enable_commit_graph = atoi(value);
-	else if (!strcmp(name, "enable-follow-links"))
-		repo->enable_follow_links = atoi(value);
-	else if (!strcmp(name, "enable-log-filecount"))
-		repo->enable_log_filecount = atoi(value);
-	else if (!strcmp(name, "enable-log-linecount"))
-		repo->enable_log_linecount = atoi(value);
-	else if (!strcmp(name, "enable-remote-branches"))
-		repo->enable_remote_branches = atoi(value);
-	else if (!strcmp(name, "enable-subject-links"))
-		repo->enable_subject_links = atoi(value);
-	else if (!strcmp(name, "enable-html-serving"))
-		repo->enable_html_serving = atoi(value);
-	else if (!strcmp(name, "branch-sort")) {
-		if (!strcmp(value, "age"))
-			repo->branch_sort = 1;
-		if (!strcmp(value, "name"))
-			repo->branch_sort = 0;
-	} else if (!strcmp(name, "commit-sort")) {
-		if (!strcmp(value, "date"))
-			repo->commit_sort = 1;
-		if (!strcmp(value, "topo"))
-			repo->commit_sort = 2;
-	} else if (!strcmp(name, "max-stats"))
-		repo->max_stats = cgit_find_stats_period(value, NULL);
-	else if (!strcmp(name, "module-link"))
-		repo->module_link= strdup_first_line(value);
-	else if (skip_prefix(name, "module-link.", &path)) {
-		item = string_list_append(&repo->submodules, strdup_first_line(path));
-		item->util = strdup_first_line(value);
-	} else if (!strcmp(name, "section"))
-		repo->section = strdup_first_line(value);
-	else if (!strcmp(name, "snapshot-prefix"))
-		repo->snapshot_prefix = strdup_first_line(value);
-	else if (!strcmp(name, "readme") && value != NULL) {
-		if (repo->readme.items == ctx.cfg.readme.items)
-			memset(&repo->readme, 0, sizeof(repo->readme));
-		string_list_append(&repo->readme, strdup_first_line(value));
-	} else if (!strcmp(name, "logo") && value != NULL)
-		repo->logo = strdup_first_line(value);
-	else if (!strcmp(name, "logo-link") && value != NULL)
-		repo->logo_link = strdup_first_line(value);
-	else if (!strcmp(name, "hide"))
-		repo->hide = atoi(value);
-	else if (!strcmp(name, "ignore"))
-		repo->ignore = atoi(value);
+	return *value ? xstrdup(value) : NULL;
 }
 
-static void config_cb(const char *name, const char *value)
+static int config_integer(const char *name)
 {
-	const char *arg;
+	const char *value = config_value(name);
+	char *end;
+	long result;
 
-	if (!strcmp(name, "section"))
-		ctx.cfg.section = strdup_first_line(value);
-	else if (!strcmp(name, "repo.url"))
-		ctx.repo = cgit_add_repo(value);
-	else if (ctx.repo && !strcmp(name, "repo.path"))
-		ctx.repo->path = trim_end(value, '/');
-	else if (ctx.repo && skip_prefix(name, "repo.", &arg))
-		cgit_repo_config(ctx.repo, arg, value);
-	else if (!strcmp(name, "readme"))
-		string_list_append(&ctx.cfg.readme, strdup_first_line(value));
-	else if (!strcmp(name, "root-title"))
-		ctx.cfg.root_title = strdup_first_line(value);
-	else if (!strcmp(name, "root-desc"))
-		ctx.cfg.root_desc = strdup_first_line(value);
-	else if (!strcmp(name, "root-readme"))
-		ctx.cfg.root_readme = strdup_first_line(value);
-	else if (!strcmp(name, "css"))
-		string_list_append(&ctx.cfg.css, strdup_first_line(value));
-	else if (!strcmp(name, "js"))
-		string_list_append(&ctx.cfg.js, strdup_first_line(value));
-	else if (!strcmp(name, "favicon"))
-		ctx.cfg.favicon = strdup_first_line(value);
-	else if (!strcmp(name, "footer"))
-		ctx.cfg.footer = strdup_first_line(value);
-	else if (!strcmp(name, "head-include"))
-		ctx.cfg.head_include = strdup_first_line(value);
-	else if (!strcmp(name, "header"))
-		ctx.cfg.header = strdup_first_line(value);
-	else if (!strcmp(name, "logo"))
-		ctx.cfg.logo = strdup_first_line(value);
-	else if (!strcmp(name, "logo-link"))
-		ctx.cfg.logo_link = strdup_first_line(value);
-	else if (!strcmp(name, "module-link"))
-		ctx.cfg.module_link = strdup_first_line(value);
-	else if (!strcmp(name, "strict-export"))
-		ctx.cfg.strict_export = strdup_first_line(value);
-	else if (!strcmp(name, "virtual-root"))
-		ctx.cfg.virtual_root = ensure_end(value, '/');
-	else if (!strcmp(name, "noplainemail"))
-		ctx.cfg.noplainemail = atoi(value);
-	else if (!strcmp(name, "noheader"))
-		ctx.cfg.noheader = atoi(value);
-	else if (!strcmp(name, "snapshots"))
-		ctx.cfg.snapshots = cgit_parse_snapshots_mask(value);
-	else if (!strcmp(name, "enable-follow-links"))
-		ctx.cfg.enable_follow_links = atoi(value);
-	else if (!strcmp(name, "enable-http-clone"))
-		ctx.cfg.enable_http_clone = atoi(value);
-	else if (!strcmp(name, "enable-index-links"))
-		ctx.cfg.enable_index_links = atoi(value);
-	else if (!strcmp(name, "enable-index-owner"))
-		ctx.cfg.enable_index_owner = atoi(value);
-	else if (!strcmp(name, "enable-blame"))
-		ctx.cfg.enable_blame = atoi(value);
-	else if (!strcmp(name, "enable-commit-graph"))
-		ctx.cfg.enable_commit_graph = atoi(value);
-	else if (!strcmp(name, "enable-log-filecount"))
-		ctx.cfg.enable_log_filecount = atoi(value);
-	else if (!strcmp(name, "enable-log-linecount"))
-		ctx.cfg.enable_log_linecount = atoi(value);
-	else if (!strcmp(name, "enable-remote-branches"))
-		ctx.cfg.enable_remote_branches = atoi(value);
-	else if (!strcmp(name, "enable-subject-links"))
-		ctx.cfg.enable_subject_links = atoi(value);
-	else if (!strcmp(name, "enable-html-serving"))
-		ctx.cfg.enable_html_serving = atoi(value);
-	else if (!strcmp(name, "enable-tree-linenumbers"))
-		ctx.cfg.enable_tree_linenumbers = atoi(value);
-	else if (!strcmp(name, "enable-git-config"))
-		ctx.cfg.enable_git_config = atoi(value);
-	else if (!strcmp(name, "max-stats"))
-		ctx.cfg.max_stats = cgit_find_stats_period(value, NULL);
-	else if (!strcmp(name, "case-sensitive-sort"))
-		ctx.cfg.case_sensitive_sort = atoi(value);
-	else if (!strcmp(name, "embedded"))
-		ctx.cfg.embedded = atoi(value);
-	else if (!strcmp(name, "max-atom-items"))
-		ctx.cfg.max_atom_items = atoi(value);
-	else if (!strcmp(name, "max-message-length"))
-		ctx.cfg.max_msg_len = atoi(value);
-	else if (!strcmp(name, "max-repodesc-length"))
-		ctx.cfg.max_repodesc_len = atoi(value);
-	else if (!strcmp(name, "max-blob-size"))
-		ctx.cfg.max_blob_size = atoi(value);
-	else if (!strcmp(name, "max-repo-count")) {
-		ctx.cfg.max_repo_count = atoi(value);
-		if (ctx.cfg.max_repo_count <= 0)
-			ctx.cfg.max_repo_count = INT_MAX;
-	} else if (!strcmp(name, "max-commit-count"))
-		ctx.cfg.max_commit_count = atoi(value);
-	else if (!strcmp(name, "project-list"))
-		ctx.cfg.project_list = strdup_first_line(expand_macros(value));
-	else if (!strcmp(name, "scan-path"))
-		if (ctx.cfg.project_list)
-			scan_projects(expand_macros(value),
-				      ctx.cfg.project_list);
-		else
-			scan_tree(expand_macros(value));
-	else if (!strcmp(name, "scan-hidden-path"))
-		ctx.cfg.scan_hidden_path = atoi(value);
-	else if (!strcmp(name, "section-from-path"))
-		ctx.cfg.section_from_path = atoi(value);
-	else if (!strcmp(name, "repository-sort"))
-		ctx.cfg.repository_sort = strdup_first_line(value);
-	else if (!strcmp(name, "section-sort"))
-		ctx.cfg.section_sort = atoi(value);
-	else if (!strcmp(name, "summary-log"))
-		ctx.cfg.summary_log = atoi(value);
-	else if (!strcmp(name, "summary-branches"))
-		ctx.cfg.summary_branches = atoi(value);
-	else if (!strcmp(name, "summary-tags"))
-		ctx.cfg.summary_tags = atoi(value);
-	else if (!strcmp(name, "side-by-side-diffs"))
-		ctx.cfg.difftype = atoi(value) ? DIFF_SSDIFF : DIFF_UNIFIED;
-	else if (!strcmp(name, "agefile"))
-		ctx.cfg.agefile = strdup_first_line(value);
-	else if (!strcmp(name, "mimetype-file"))
-		ctx.cfg.mimetype_file = strdup_first_line(value);
-	else if (!strcmp(name, "renamelimit"))
-		ctx.cfg.renamelimit = atoi(value);
-	else if (!strcmp(name, "remove-suffix"))
-		ctx.cfg.remove_suffix = atoi(value);
-	else if (!strcmp(name, "robots"))
-		ctx.cfg.robots = strdup_first_line(value);
-	else if (!strcmp(name, "clone-prefix"))
-		ctx.cfg.clone_prefix = strdup_first_line(value);
-	else if (!strcmp(name, "clone-url"))
-		ctx.cfg.clone_url = strdup_first_line(value);
-	else if (!strcmp(name, "local-time"))
-		ctx.cfg.local_time = atoi(value);
-	else if (!strcmp(name, "commit-sort")) {
-		if (!strcmp(value, "date"))
-			ctx.cfg.commit_sort = 1;
-		if (!strcmp(value, "topo"))
-			ctx.cfg.commit_sort = 2;
-	} else if (!strcmp(name, "branch-sort")) {
-		if (!strcmp(value, "age"))
-			ctx.cfg.branch_sort = 1;
-		if (!strcmp(value, "name"))
-			ctx.cfg.branch_sort = 0;
-	} else if (skip_prefix(name, "mimetype.", &arg))
-		add_mimetype(arg, value);
-	else if (!strcmp(name, "include"))
-		parse_configfile(expand_macros(value), config_cb);
+	errno = 0;
+	result = strtol(value, &end, 10);
+	if (errno || end == value || *end || result < INT_MIN || result > INT_MAX) {
+		fprintf(stderr, "gilti-cgit: environment variable %s must be an integer\n",
+			name);
+		exit(1);
+	}
+	return result;
 }
 
 static void querystring_cb(const char *name, const char *value)
@@ -324,64 +122,95 @@ static void querystring_cb(const char *name, const char *value)
 
 static void prepare_context(void)
 {
+	const char *value;
+
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.cfg.agefile = "info/web/last-modified";
-	ctx.cfg.case_sensitive_sort = 1;
-	ctx.cfg.branch_sort = 0;
-	ctx.cfg.commit_sort = 0;
-	ctx.cfg.logo = "/cgit.png";
-	ctx.cfg.favicon = "/favicon.ico";
-	ctx.cfg.local_time = 0;
-	ctx.cfg.enable_http_clone = 1;
-	ctx.cfg.enable_index_owner = 1;
-	ctx.cfg.enable_tree_linenumbers = 1;
-	ctx.cfg.enable_git_config = 0;
-	ctx.cfg.max_repo_count = 50;
-	ctx.cfg.max_commit_count = 50;
-	ctx.cfg.max_lock_attempts = 5;
-	ctx.cfg.max_msg_len = 80;
-	ctx.cfg.max_repodesc_len = 80;
-	ctx.cfg.max_blob_size = 0;
-	ctx.cfg.max_stats = 0;
-	ctx.cfg.project_list = NULL;
-	ctx.cfg.renamelimit = -1;
-	ctx.cfg.remove_suffix = 0;
-	ctx.cfg.robots = "index, nofollow";
-	ctx.cfg.root_title = "Git repository browser";
-	ctx.cfg.root_desc = "a fast webinterface for the git dscm";
-	ctx.cfg.scan_hidden_path = 0;
-	ctx.cfg.script_name = CGIT_SCRIPT_NAME;
-	ctx.cfg.section = "";
-	ctx.cfg.repository_sort = "name";
-	ctx.cfg.section_sort = 1;
-	ctx.cfg.summary_branches = 10;
-	ctx.cfg.summary_log = 10;
-	ctx.cfg.summary_tags = 10;
-	ctx.cfg.max_atom_items = 10;
-	ctx.cfg.difftype = DIFF_UNIFIED;
-	ctx.env.cgit_config = getenv("CGIT_CONFIG");
+	ctx.cfg.agefile = config_string("CGIT_AGEFILE");
+	ctx.cfg.branch_sort = config_integer("CGIT_BRANCH_SORT");
+	ctx.cfg.case_sensitive_sort = config_integer("CGIT_CASE_SENSITIVE_SORT");
+	ctx.cfg.clone_prefix = config_optional_string("CGIT_CLONE_PREFIX");
+	ctx.cfg.clone_url = config_optional_string("CGIT_CLONE_URL");
+	ctx.cfg.commit_sort = config_integer("CGIT_COMMIT_SORT");
+	ctx.cfg.difftype = config_integer("CGIT_DIFFTYPE");
+	ctx.cfg.embedded = config_integer("CGIT_EMBEDDED");
+	ctx.cfg.enable_blame = config_integer("CGIT_ENABLE_BLAME");
+	ctx.cfg.enable_commit_graph = config_integer("CGIT_ENABLE_COMMIT_GRAPH");
+	ctx.cfg.enable_follow_links = config_integer("CGIT_ENABLE_FOLLOW_LINKS");
+	ctx.cfg.enable_html_serving = config_integer("CGIT_ENABLE_HTML_SERVING");
+	ctx.cfg.enable_http_clone = config_integer("CGIT_ENABLE_HTTP_CLONE");
+	ctx.cfg.enable_index_links = config_integer("CGIT_ENABLE_INDEX_LINKS");
+	ctx.cfg.enable_index_owner = config_integer("CGIT_ENABLE_INDEX_OWNER");
+	ctx.cfg.enable_log_filecount = config_integer("CGIT_ENABLE_LOG_FILECOUNT");
+	ctx.cfg.enable_log_linecount = config_integer("CGIT_ENABLE_LOG_LINECOUNT");
+	ctx.cfg.enable_remote_branches = config_integer("CGIT_ENABLE_REMOTE_BRANCHES");
+	ctx.cfg.enable_subject_links = config_integer("CGIT_ENABLE_SUBJECT_LINKS");
+	ctx.cfg.enable_tree_linenumbers = config_integer("CGIT_ENABLE_TREE_LINENUMBERS");
+	ctx.cfg.favicon = config_string("CGIT_FAVICON");
+	ctx.cfg.footer = config_optional_string("CGIT_FOOTER");
+	ctx.cfg.head_include = config_optional_string("CGIT_HEAD_INCLUDE");
+	ctx.cfg.header = config_optional_string("CGIT_HEADER");
+	ctx.cfg.local_time = config_integer("CGIT_LOCAL_TIME");
+	ctx.cfg.logo = config_string("CGIT_LOGO");
+	ctx.cfg.logo_link = config_optional_string("CGIT_LOGO_LINK");
+	ctx.cfg.max_atom_items = config_integer("CGIT_MAX_ATOM_ITEMS");
+	ctx.cfg.max_blob_size = config_integer("CGIT_MAX_BLOB_SIZE");
+	ctx.cfg.max_commit_count = config_integer("CGIT_MAX_COMMIT_COUNT");
+	ctx.cfg.max_msg_len = config_integer("CGIT_MAX_MESSAGE_LENGTH");
+	ctx.cfg.max_repo_count = config_integer("CGIT_MAX_REPO_COUNT");
+	ctx.cfg.max_repodesc_len = config_integer("CGIT_MAX_REPODESC_LENGTH");
+	ctx.cfg.max_stats = config_integer("CGIT_MAX_STATS");
+	ctx.cfg.mimetype_file = config_optional_string("CGIT_MIMETYPE_FILE");
+	ctx.cfg.module_link = config_optional_string("CGIT_MODULE_LINK");
+	ctx.cfg.noheader = config_integer("CGIT_NOHEADER");
+	ctx.cfg.noplainemail = config_integer("CGIT_NOPLAINEMAIL");
+	ctx.cfg.remove_suffix = config_integer("CGIT_REMOVE_SUFFIX");
+	cgit_default_repo_desc = config_string("CGIT_REPO_DEFAULT_DESC");
+	ctx.cfg.renamelimit = config_integer("CGIT_RENAMELIMIT");
+	ctx.cfg.repository_sort = config_string("CGIT_REPOSITORY_SORT");
+	ctx.cfg.robots = config_string("CGIT_ROBOTS");
+	ctx.cfg.root_desc = config_string("CGIT_ROOT_DESC");
+	ctx.cfg.root_readme = config_optional_string("CGIT_ROOT_README");
+	ctx.cfg.root_title = config_string("CGIT_ROOT_TITLE");
+	ctx.cfg.scan_hidden_path = config_integer("CGIT_SCAN_HIDDEN_PATH");
+	ctx.cfg.script_name = config_string("SCRIPT_NAME");
+	ctx.cfg.section = config_string("CGIT_SECTION");
+	ctx.cfg.section_from_path = config_integer("CGIT_SECTION_FROM_PATH");
+	ctx.cfg.section_sort = config_integer("CGIT_SECTION_SORT");
+	ctx.cfg.snapshots = config_integer("CGIT_SNAPSHOTS");
+	ctx.cfg.strict_export = config_optional_string("CGIT_STRICT_EXPORT");
+	ctx.cfg.summary_branches = config_integer("CGIT_SUMMARY_BRANCHES");
+	ctx.cfg.summary_log = config_integer("CGIT_SUMMARY_LOG");
+	ctx.cfg.summary_tags = config_integer("CGIT_SUMMARY_TAGS");
+	ctx.cfg.virtual_root = ensure_end(config_value("CGIT_VIRTUAL_ROOT"), '/');
+	string_list_init_dup(&ctx.cfg.css);
+	string_list_init_dup(&ctx.cfg.js);
+	string_list_init_dup(&ctx.cfg.mimetypes);
+	string_list_init_dup(&ctx.cfg.readme);
+	value = config_value("CGIT_CSS");
+	if (*value)
+		string_list_append(&ctx.cfg.css, value);
+	value = config_value("CGIT_JS");
+	if (*value)
+		string_list_append(&ctx.cfg.js, value);
+	value = config_value("CGIT_README_0");
+	if (*value)
+		string_list_append(&ctx.cfg.readme, value);
+	value = config_value("CGIT_README_1");
+	if (*value)
+		string_list_append(&ctx.cfg.readme, value);
+
 	ctx.env.http_host = getenv("HTTP_HOST");
 	ctx.env.https = getenv("HTTPS");
-	ctx.env.no_http = getenv("NO_HTTP");
 	ctx.env.path_info = getenv("PATH_INFO");
 	ctx.env.query_string = getenv("QUERY_STRING");
 	ctx.env.request_method = getenv("REQUEST_METHOD");
-	ctx.env.script_name = getenv("SCRIPT_NAME");
 	ctx.env.server_name = getenv("SERVER_NAME");
 	ctx.env.server_port = getenv("SERVER_PORT");
 	ctx.page.mimetype = "text/html";
 	ctx.page.charset = PAGE_ENCODING;
-	ctx.page.filename = NULL;
-	ctx.page.size = 0;
 	ctx.page.modified = time(NULL);
-	ctx.page.etag = NULL;
-	string_list_init_dup(&ctx.cfg.mimetypes);
-	if (ctx.env.script_name)
-		ctx.cfg.script_name = xstrdup(ctx.env.script_name);
 	if (ctx.env.query_string)
 		ctx.qry.raw = xstrdup(ctx.env.query_string);
-	if (!ctx.env.cgit_config)
-		ctx.env.cgit_config = CGIT_CONFIG;
 }
 
 struct refmatch {
@@ -629,162 +458,13 @@ static void process_request(void)
 	cmd->fn();
 }
 
-static int cmp_repos(const void *a, const void *b)
-{
-	const struct cgit_repo *ra = a, *rb = b;
-	return strcmp(ra->url, rb->url);
-}
-
-static char *build_snapshot_setting(int bitmap)
-{
-	const struct cgit_snapshot_format *f;
-	struct strbuf result = STRBUF_INIT;
-
-	for (f = cgit_snapshot_formats; f->suffix; f++) {
-		if (cgit_snapshot_format_bit(f) & bitmap) {
-			if (result.len)
-				strbuf_addch(&result, ' ');
-			strbuf_addstr(&result, f->suffix);
-		}
-	}
-	return strbuf_detach(&result, NULL);
-}
-
-static void print_repo(FILE *f, struct cgit_repo *repo)
-{
-	struct string_list_item *item;
-	fprintf(f, "repo.url=%s\n", repo->url);
-	fprintf(f, "repo.name=%s\n", repo->name);
-	fprintf(f, "repo.path=%s\n", repo->path);
-	if (repo->owner)
-		fprintf(f, "repo.owner=%s\n", repo->owner);
-	if (repo->desc)
-		fprintf(f, "repo.desc=%s\n", repo->desc);
-	for_each_string_list_item(item, &repo->readme) {
-		if (item->util)
-			fprintf(f, "repo.readme=%s:%s\n", (char *)item->util, item->string);
-		else
-			fprintf(f, "repo.readme=%s\n", item->string);
-	}
-	if (repo->defbranch)
-		fprintf(f, "repo.defbranch=%s\n", repo->defbranch);
-	if (repo->extra_head_content)
-		fprintf(f, "repo.extra-head-content=%s\n", repo->extra_head_content);
-	if (repo->module_link)
-		fprintf(f, "repo.module-link=%s\n", repo->module_link);
-	if (repo->section)
-		fprintf(f, "repo.section=%s\n", repo->section);
-	if (repo->homepage)
-		fprintf(f, "repo.homepage=%s\n", repo->homepage);
-	if (repo->clone_url)
-		fprintf(f, "repo.clone-url=%s\n", repo->clone_url);
-	fprintf(f, "repo.enable-blame=%d\n",
-	        repo->enable_blame);
-	fprintf(f, "repo.enable-commit-graph=%d\n",
-	        repo->enable_commit_graph);
-	fprintf(f, "repo.enable-follow-links=%d\n",
-		repo->enable_follow_links);
-	fprintf(f, "repo.enable-log-filecount=%d\n",
-	        repo->enable_log_filecount);
-	fprintf(f, "repo.enable-log-linecount=%d\n",
-	        repo->enable_log_linecount);
-	if (repo->snapshots != ctx.cfg.snapshots) {
-		char *tmp = build_snapshot_setting(repo->snapshots);
-		fprintf(f, "repo.snapshots=%s\n", tmp ? tmp : "");
-		free(tmp);
-	}
-	if (repo->snapshot_prefix)
-		fprintf(f, "repo.snapshot-prefix=%s\n", repo->snapshot_prefix);
-	if (repo->max_stats != ctx.cfg.max_stats)
-		fprintf(f, "repo.max-stats=%s\n",
-		        cgit_find_stats_periodname(repo->max_stats));
-	if (repo->logo)
-		fprintf(f, "repo.logo=%s\n", repo->logo);
-	if (repo->logo_link)
-		fprintf(f, "repo.logo-link=%s\n", repo->logo_link);
-	fprintf(f, "repo.enable-remote-branches=%d\n", repo->enable_remote_branches);
-	fprintf(f, "repo.enable-subject-links=%d\n", repo->enable_subject_links);
-	fprintf(f, "repo.enable-html-serving=%d\n", repo->enable_html_serving);
-	if (repo->branch_sort == 1)
-		fprintf(f, "repo.branch-sort=age\n");
-	if (repo->commit_sort) {
-		if (repo->commit_sort == 1)
-			fprintf(f, "repo.commit-sort=date\n");
-		else if (repo->commit_sort == 2)
-			fprintf(f, "repo.commit-sort=topo\n");
-	}
-	fprintf(f, "repo.hide=%d\n", repo->hide);
-	fprintf(f, "repo.ignore=%d\n", repo->ignore);
-	fprintf(f, "\n");
-}
-
-static void print_repolist(FILE *f, struct cgit_repolist *list, int start)
-{
-	int i;
-
-	for (i = start; i < list->count; i++)
-		print_repo(f, &list->repos[i]);
-}
-
-static void cgit_parse_args(int argc, const char **argv)
-{
-	int i;
-	const char *arg;
-	int scan = 0;
-
-	for (i = 1; i < argc; i++) {
-		if (!strcmp(argv[i], "--version")) {
-			printf("CGit %s | https://git.zx2c4.com/cgit/\n", CGIT_VERSION);
-			exit(0);
-		}
-		if (!strcmp(argv[i], "--nohttp")) {
-			ctx.env.no_http = "1";
-		} else if (skip_prefix(argv[i], "--query=", &arg)) {
-			ctx.qry.raw = xstrdup(arg);
-		} else if (skip_prefix(argv[i], "--repo=", &arg)) {
-			ctx.qry.repo = xstrdup(arg);
-		} else if (skip_prefix(argv[i], "--page=", &arg)) {
-			ctx.qry.page = xstrdup(arg);
-		} else if (skip_prefix(argv[i], "--head=", &arg)) {
-			ctx.qry.head = xstrdup(arg);
-		} else if (skip_prefix(argv[i], "--oid=", &arg)) {
-			ctx.qry.oid = xstrdup(arg);
-			ctx.qry.has_oid = 1;
-		} else if (skip_prefix(argv[i], "--ofs=", &arg)) {
-			ctx.qry.ofs = atoi(arg);
-		} else if (skip_prefix(argv[i], "--scan-tree=", &arg) ||
-		           skip_prefix(argv[i], "--scan-path=", &arg)) {
-			/*
-			 * HACK: The global snapshot bit mask defines the set
-			 * of allowed snapshot formats, but the config file
-			 * hasn't been parsed yet so the mask is currently 0.
-			 * By setting all bits high before scanning we make
-			 * sure that any in-repo cgitrc snapshot setting is
-			 * respected by scan_tree().
-			 *
-			 * NOTE: We assume that there aren't more than 8
-			 * different snapshot formats supported by cgit...
-			 */
-			ctx.cfg.snapshots = 0xFF;
-			scan++;
-			scan_tree(arg);
-		}
-	}
-	if (scan) {
-		qsort(cgit_repolist.repos, cgit_repolist.count,
-			sizeof(struct cgit_repo), cmp_repos);
-		print_repolist(stdout, &cgit_repolist, 0);
-		exit(0);
-	}
-}
-
 static NORETURN void cgit_die_routine(const char *msg, va_list params)
 {
 	cgit_vprint_error_page(400, "Bad request", msg, params);
 	exit(0);
 }
 
-int cmd_main(int argc, const char **argv)
+int cmd_main(int argc UNUSED, const char **argv UNUSED)
 {
 	const char *path;
 
@@ -795,17 +475,9 @@ int cmd_main(int argc, const char **argv)
 	cgit_repolist.count = 0;
 	cgit_repolist.repos = NULL;
 
-	cgit_parse_args(argc, argv);
-	parse_configfile(expand_macros(ctx.env.cgit_config), config_cb);
+	scan_tree(config_value("CGIT_SCAN_PATH"));
 	ctx.repo = NULL;
 	http_parse_querystring(ctx.qry.raw, querystring_cb);
-
-	/* If virtual-root isn't specified in cgitrc, lets pretend
-	 * that virtual-root equals SCRIPT_NAME, minus any possibly
-	 * trailing slashes.
-	 */
-	if (!ctx.cfg.virtual_root && ctx.cfg.script_name)
-		ctx.cfg.virtual_root = ensure_end(ctx.cfg.script_name, '/');
 
 	/* If no url parameter is specified on the querystring, use PATH_INFO
 	 * as url. This allows cgit to work with virtual urls without the need

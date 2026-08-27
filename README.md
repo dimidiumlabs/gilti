@@ -39,8 +39,16 @@ docker run --rm \
   ghcr.io/dimidiumlabs/gilti:nightly
 ```
 
-Gilti snapshots this file at process startup; changing it takes effect after a
-restart. Repositories and the persistent SSH host key live on the state volume.
+The HTTP configuration is read from the environment at startup:
+
+- `GILTI_CGIT_ROOT_TITLE` (default: `Gilti`);
+- `GILTI_CGIT_ROOT_DESCRIPTION` (default: `A tiny Git server`);
+- `GILTI_CGIT_CLONE_PREFIX` (empty by default);
+- `GILTI_CGIT_CACHE` (default: `5`, maximum: `3600` seconds).
+
+Gilti snapshots the authorized keys file at process startup; changing it takes
+effect after a restart. Repositories and the persistent SSH host key live on
+the state volume.
 
 ## Helm
 

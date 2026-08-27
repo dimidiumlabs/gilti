@@ -28,7 +28,12 @@ grep -q '^apiVersion: gateway.networking.k8s.io/v1$' "$rendered"
 grep -q 'helm.sh/resource-policy: keep' "$rendered"
 grep -q 'ssh-ed25519 AAAAcharttest gilti' "$rendered"
 grep -q 'mountPath: /etc/gilti/authorized_keys' "$rendered"
-grep -q '^    cache=5$' "$rendered"
+grep -q 'name: GILTI_CGIT_CACHE' "$rendered"
+grep -q 'value: "5"' "$rendered"
+if grep -q 'cgitrc' "$rendered"; then
+    echo 'chart still provisions a cgit configuration file' >&2
+    exit 1
+fi
 if grep -q '/var/cache/cgit' "$rendered"; then
     echo 'chart still provisions the removed cgit disk cache' >&2
     exit 1
