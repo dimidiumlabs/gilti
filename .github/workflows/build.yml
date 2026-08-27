@@ -82,6 +82,8 @@ jobs:
                 build-base=0.5-r3 \
                 cargo=1.87.0-r1 \
                 rust=1.87.0-r1 \
+                git=2.49.1-r0 \
+                python3 \
                 zlib-dev=1.3.2-r0
               scripts/build-artifacts.sh "${{ matrix.arch }}"
               chown -R "$HOST_UID:$HOST_GID" .container

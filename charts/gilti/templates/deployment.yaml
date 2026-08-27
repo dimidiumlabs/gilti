@@ -84,7 +84,7 @@ spec:
               subPath: authorized_keys
               readOnly: true
             - name: run
-              mountPath: /run
+              mountPath: /run/gilti
             - name: tmp
               mountPath: /tmp
       volumes:
