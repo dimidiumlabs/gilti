@@ -63,61 +63,29 @@ static int config_integer(const char *name)
 	return result;
 }
 
-static void querystring_cb(const char *name, const char *value)
+static char *request_optional_string(const char *name)
 {
-	if (!value)
-		value = "";
+	const char *value = getenv(name);
 
-	if (!strcmp(name,"r")) {
-		ctx.qry.repo = xstrdup(value);
-		ctx.repo = cgit_get_repoinfo(value);
-	} else if (!strcmp(name, "p")) {
-		ctx.qry.page = xstrdup(value);
-	} else if (!strcmp(name, "url")) {
-		if (*value == '/')
-			value++;
-		ctx.qry.url = xstrdup(value);
-		cgit_parse_url(value);
-	} else if (!strcmp(name, "qt")) {
-		ctx.qry.grep = xstrdup(value);
-	} else if (!strcmp(name, "q")) {
-		ctx.qry.search = xstrdup(value);
-	} else if (!strcmp(name, "h")) {
-		ctx.qry.head = xstrdup(value);
-	} else if (!strcmp(name, "id")) {
-		ctx.qry.oid = xstrdup(value);
-		ctx.qry.has_oid = 1;
-	} else if (!strcmp(name, "id2")) {
-		ctx.qry.oid2 = xstrdup(value);
-		ctx.qry.has_oid = 1;
-	} else if (!strcmp(name, "ofs")) {
-		ctx.qry.ofs = atoi(value);
-	} else if (!strcmp(name, "path")) {
-		ctx.qry.path = trim_end(value, '/');
-	} else if (!strcmp(name, "name")) {
-		ctx.qry.name = xstrdup(value);
-	} else if (!strcmp(name, "s")) {
-		ctx.qry.sort = xstrdup(value);
-	} else if (!strcmp(name, "showmsg")) {
-		ctx.qry.showmsg = atoi(value);
-	} else if (!strcmp(name, "period")) {
-		ctx.qry.period = xstrdup(value);
-	} else if (!strcmp(name, "dt")) {
-		ctx.qry.difftype = atoi(value);
-		ctx.qry.has_difftype = 1;
-	} else if (!strcmp(name, "ss")) {
-		/* No longer generated, but there may be links out there. */
-		ctx.qry.difftype = atoi(value) ? DIFF_SSDIFF : DIFF_UNIFIED;
-		ctx.qry.has_difftype = 1;
-	} else if (!strcmp(name, "all")) {
-		ctx.qry.show_all = atoi(value);
-	} else if (!strcmp(name, "context")) {
-		ctx.qry.context = atoi(value);
-	} else if (!strcmp(name, "ignorews")) {
-		ctx.qry.ignorews = atoi(value);
-	} else if (!strcmp(name, "follow")) {
-		ctx.qry.follow = atoi(value);
+	return value && *value ? xstrdup(value) : NULL;
+}
+
+static int request_optional_integer(const char *name)
+{
+	const char *value = getenv(name);
+	char *end;
+	long result;
+
+	if (!value || !*value)
+		return 0;
+	errno = 0;
+	result = strtol(value, &end, 10);
+	if (errno || end == value || *end || result < INT_MIN || result > INT_MAX) {
+		fprintf(stderr, "gilti-cgit: environment variable %s must be an integer\n",
+			name);
+		exit(1);
 	}
+	return result;
 }
 
 static void prepare_context(void)
@@ -209,65 +177,49 @@ static void prepare_context(void)
 	ctx.page.mimetype = "text/html";
 	ctx.page.charset = PAGE_ENCODING;
 	ctx.page.modified = time(NULL);
-	if (ctx.env.query_string)
-		ctx.qry.raw = xstrdup(ctx.env.query_string);
 }
 
-struct refmatch {
-	char *req_ref;
-	char *first_ref;
-	int match;
-};
-
-static int find_current_ref(const struct reference *ref, void *cb_data)
+static void prepare_request(void)
 {
-	struct refmatch *info;
-
-	info = (struct refmatch *)cb_data;
-	if (!strcmp(ref->name, info->req_ref))
-		info->match = 1;
-	if (!info->first_ref)
-		info->first_ref = xstrdup(ref->name);
-	return info->match;
-}
-
-static void free_refmatch_inner(struct refmatch *info)
-{
-	if (info->first_ref)
-		free(info->first_ref);
-}
-
-static char *find_default_branch(struct cgit_repo *repo)
-{
-	struct refmatch info;
-	char *ref;
-
-	info.req_ref = repo->defbranch;
-	info.first_ref = NULL;
-	info.match = 0;
-	refs_for_each_branch_ref(get_main_ref_store(the_repository),
-				 find_current_ref, &info);
-	if (info.match)
-		ref = info.req_ref;
-	else
-		ref = info.first_ref;
-	if (ref)
-		ref = xstrdup(ref);
-	free_refmatch_inner(&info);
-
-	return ref;
+	ctx.qry.repo = request_optional_string("GILTI_REPOSITORY");
+	ctx.qry.page = config_string("GILTI_PAGE");
+	ctx.qry.url = request_optional_string("GILTI_CURRENT_URL");
+	ctx.qry.head = request_optional_string("GILTI_REVISION");
+	if (ctx.qry.head) {
+		ctx.qry.oid = xstrdup(ctx.qry.head);
+		ctx.qry.has_oid = 1;
+	}
+	ctx.qry.oid2 = request_optional_string("GILTI_OLD_REVISION");
+	ctx.qry.path = request_optional_string("GILTI_PATH");
+	ctx.qry.format = request_optional_string("GILTI_FORMAT");
+	ctx.qry.signature = request_optional_integer("GILTI_SIGNATURE");
+	ctx.qry.search = request_optional_string("GILTI_QUERY_SEARCH");
+	ctx.qry.grep = request_optional_string("GILTI_QUERY_GREP");
+	ctx.qry.sort = request_optional_string("GILTI_QUERY_SORT");
+	ctx.qry.period = request_optional_string("GILTI_QUERY_PERIOD");
+	ctx.qry.ofs = request_optional_integer("GILTI_QUERY_OFFSET");
+	ctx.qry.showmsg = request_optional_integer("GILTI_QUERY_SHOWMSG");
+	ctx.qry.context = request_optional_integer("GILTI_QUERY_CONTEXT");
+	ctx.qry.ignorews = request_optional_integer("GILTI_QUERY_IGNOREWS");
+	ctx.qry.follow = request_optional_integer("GILTI_QUERY_FOLLOW");
+	if (getenv("GILTI_QUERY_DIFFTYPE")) {
+		ctx.qry.difftype = request_optional_integer("GILTI_QUERY_DIFFTYPE");
+		ctx.qry.has_difftype = 1;
+	}
+	if (ctx.qry.repo)
+		ctx.repo = cgit_get_repoinfo(ctx.qry.repo);
 }
 
 static char *guess_defbranch(void)
 {
-	const char *ref, *refname;
+	const char *ref;
 	struct object_id oid;
 
 	ref = refs_resolve_ref_unsafe(get_main_ref_store(the_repository),
 				     "HEAD", 0, &oid, NULL);
-	if (!ref || !skip_prefix(ref, "refs/heads/", &refname))
-		return "master";
-	return xstrdup(refname);
+	if (!ref)
+		return xstrdup("HEAD");
+	return xstrdup(ref);
 }
 
 /* The caller must free filename and ref after calling this. */
@@ -341,7 +293,7 @@ static void choose_readme(struct cgit_repo *repo)
 static void print_no_repo_clone_urls(const char *url)
 {
         html("<tr><td><a rel='vcs-git' href='");
-        html_url_path(url);
+        html_attr(url);
         html("' title='");
         html_attr(ctx.repo->name);
         html(" Git repository'>");
@@ -385,32 +337,24 @@ static int prepare_repo_cmd(int nongit)
 	if (!ctx.repo->defbranch)
 		ctx.repo->defbranch = guess_defbranch();
 
-	if (!ctx.qry.head) {
-		ctx.qry.nohead = 1;
-		ctx.qry.head = find_default_branch(ctx.repo);
-	}
+	if (!ctx.qry.head)
+		ctx.qry.head = xstrdup("HEAD");
 
-	if (!ctx.qry.head) {
+	if (repo_get_oid(the_repository, ctx.qry.head, &oid)) {
+		if (strcmp(ctx.qry.page, "summary")) {
+			cgit_print_error_page(404, "Not found",
+					"Invalid revision: %s", ctx.qry.head);
+			return 1;
+		}
 		cgit_print_http_headers();
 		cgit_print_docstart();
 		cgit_print_pageheader();
 		cgit_print_error("Repository seems to be empty");
-		if (!strcmp(ctx.qry.page, "summary")) {
-			html("<table class='list'><tr class='nohover'><td>&nbsp;</td></tr><tr class='nohover'><th class='left'>Clone</th></tr>\n");
-			cgit_prepare_repo_env(ctx.repo);
-			cgit_add_clone_urls(print_no_repo_clone_urls);
-			html("</table>\n");
-		}
+		html("<table class='list'><tr class='nohover'><td>&nbsp;</td></tr><tr class='nohover'><th class='left'>Clone</th></tr>\n");
+		cgit_prepare_repo_env(ctx.repo);
+		cgit_add_clone_urls(print_no_repo_clone_urls);
+		html("</table>\n");
 		cgit_print_docend();
-		return 1;
-	}
-
-	if (repo_get_oid(the_repository, ctx.qry.head, &oid)) {
-		char *old_head = ctx.qry.head;
-		ctx.qry.head = xstrdup(ctx.repo->defbranch);
-		cgit_print_error_page(404, "Not found",
-				"Invalid branch: %s", old_head);
-		free(old_head);
 		return 1;
 	}
 	string_list_sort(&ctx.repo->submodules);
@@ -423,6 +367,11 @@ static void process_request(void)
 {
 	struct cgit_cmd *cmd;
 	int nongit = 0;
+
+	if (ctx.qry.repo && !ctx.repo) {
+		cgit_print_error_page(404, "Not found", "Repository not found");
+		return;
+	}
 
 	if (ctx.repo)
 		prepare_repo_env(&nongit);
@@ -466,8 +415,6 @@ static NORETURN void cgit_die_routine(const char *msg, va_list params)
 
 int cmd_main(int argc UNUSED, const char **argv UNUSED)
 {
-	const char *path;
-
 	set_die_routine(cgit_die_routine);
 
 	prepare_context();
@@ -476,27 +423,7 @@ int cmd_main(int argc UNUSED, const char **argv UNUSED)
 	cgit_repolist.repos = NULL;
 
 	scan_tree(config_value("CGIT_SCAN_PATH"));
-	ctx.repo = NULL;
-	http_parse_querystring(ctx.qry.raw, querystring_cb);
-
-	/* If no url parameter is specified on the querystring, use PATH_INFO
-	 * as url. This allows cgit to work with virtual urls without the need
-	 * for rewriterules in the webserver.
-	 */
-	path = ctx.env.path_info;
-	if (!ctx.qry.url && path) {
-		if (path[0] == '/')
-			path++;
-		ctx.qry.url = xstrdup(path);
-		if (ctx.qry.raw) {
-			char *newqry = fmtalloc("%s?%s", path, ctx.qry.raw);
-			free(ctx.qry.raw);
-			ctx.qry.raw = newqry;
-		} else
-			ctx.qry.raw = xstrdup(ctx.qry.url);
-		cgit_parse_url(ctx.qry.url);
-	}
-
+	prepare_request();
 	process_request();
 	return 0;
 }

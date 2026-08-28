@@ -33,6 +33,10 @@ static int write_archive_type(const char *format, const char *hex, const char *p
 		strbuf_release(&buf);
 	}
 	strvec_push(&argv, hex);
+	if (ctx.qry.path) {
+		strvec_push(&argv, "--");
+		strvec_push(&argv, ctx.qry.path);
+	}
 	/*
 	 * Now we need to copy the pointers to arguments into a new
 	 * structure because write_archive will rearrange its arguments

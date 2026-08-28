@@ -31,9 +31,11 @@ git push -u origin main
 
 ## Repository visibility
 
-cgit is anonymous and read-only and scans the complete repository directory.
-Consequently every repository available over SSH is also publicly visible over
-HTTP. Web cloning and snapshots are disabled in the default policy.
+Repository browsing, smart HTTP cloning, archives, and LFS downloads are
+anonymous and read-only. Consequently every repository available over SSH is
+also publicly visible over HTTP. HTTP pushes and LFS uploads remain disabled by
+default; setting `http.write: true` enables them without authentication and is
+appropriate only behind a trusted access-control proxy.
 
 ## Networking
 

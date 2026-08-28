@@ -74,8 +74,8 @@ struct Repo {
     owner: String,
     owner_url: String,
     idle: Option<Age>,
-    log_url: String,
-    tree_url: String,
+    log_url: Option<String>,
+    tree_url: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -130,7 +130,7 @@ fn render_repolist(page: RepoList) -> Markup {
                     }
 
                     @if shell.css.is_empty() {
-                        link rel="stylesheet" type="text/css" href="/cgit.css";
+                        link rel="stylesheet" type="text/css" href="/-/assets/cgit.css";
                     }
 
                     @for css in &shell.css {
@@ -140,7 +140,7 @@ fn render_repolist(page: RepoList) -> Markup {
                     }
 
                     @if shell.js.is_empty() {
-                        script type="text/javascript" src="/cgit.js" {}
+                        script type="text/javascript" src="/-/assets/cgit.js" {}
                     }
 
                     @for js in &shell.js {
@@ -219,7 +219,7 @@ fn page_content(page: &RepoList, footer_inside: bool) -> Markup {
                                 td { a href=(&repo.url) { (&repo.description.text) @if repo.description.truncated { "..." } } }
                                 @if page.owner_enabled { td { a href=(&repo.owner_url) { (&repo.owner) } } }
                                 td { @if let Some(age) = &repo.idle { span class=(if age.unit == "minutes" { "age-mins".to_owned() } else { format!("age-{}", age.unit) }) data-ut=(age.timestamp) title=(&age.title) { (format!("{:.0}", age.amount)) " " (if age.unit == "minutes" { "min." } else { &age.unit }) } } }
-                                @if page.links_enabled { td { a class="button" href=(&repo.url) { "summary" } a class="button" href=(&repo.log_url) { "log" } a class="button" href=(&repo.tree_url) { "tree" } } }
+                                @if page.links_enabled { td { a class="button" href=(&repo.url) { "summary" } @if let Some(url) = &repo.log_url { a class="button" href=(url) { "log" } } @if let Some(url) = &repo.tree_url { a class="button" href=(url) { "tree" } } } }
                             },
                         }
                     }

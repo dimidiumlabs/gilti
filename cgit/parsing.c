@@ -14,56 +14,6 @@
 
 #include "cgit.h"
 
-/*
- * url syntax: [repo ['/' cmd [ '/' path]]]
- *   repo: any valid repo url, may contain '/'
- *   cmd:  log | commit | diff | tree | view | blob | snapshot
- *   path: any valid path, may contain '/'
- *
- */
-void cgit_parse_url(const char *url)
-{
-	char *c, *cmd, *p, *buf;
-	struct cgit_repo *repo;
-
-	if (!url || url[0] == '\0')
-		return;
-
-	ctx.qry.page = NULL;
-	ctx.repo = cgit_get_repoinfo(url);
-	if (ctx.repo) {
-		ctx.qry.repo = ctx.repo->url;
-		return;
-	}
-
-	buf = xstrdup(url);
-	cmd = NULL;
-	c = strchr(buf, '/');
-	while (c) {
-		c[0] = '\0';
-		repo = cgit_get_repoinfo(buf);
-		if (repo) {
-			ctx.repo = repo;
-			cmd = c;
-		}
-		c[0] = '/';
-		c = strchr(c + 1, '/');
-	}
-
-	if (ctx.repo) {
-		ctx.qry.repo = ctx.repo->url;
-		p = strchr(cmd + 1, '/');
-		if (p) {
-			p[0] = '\0';
-			if (p[1])
-				ctx.qry.path = trim_end(p + 1, '/');
-		}
-		if (cmd[1])
-			ctx.qry.page = xstrdup(cmd + 1);
-	}
-	free(buf);
-}
-
 static char *substr(const char *head, const char *tail)
 {
 	char *buf;

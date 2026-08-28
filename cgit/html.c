@@ -348,18 +348,3 @@ int html_include_text(const char *filename)
 	fclose(f);
 	return 0;
 }
-
-void http_parse_querystring(const char *txt, void (*fn)(const char *name, const char *value))
-{
-	const char *t = txt;
-
-	while (t && *t) {
-		char *name = url_decode_parameter_name(&t);
-		if (*name) {
-			char *value = url_decode_parameter_value(&t);
-			fn(name, value);
-			free(value);
-		}
-		free(name);
-	}
-}

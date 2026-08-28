@@ -41,12 +41,14 @@ static time_t read_agefile(const char *path)
 static int get_repo_modtime(const struct cgit_repo *repo, time_t *mtime)
 {
 	struct strbuf path = STRBUF_INIT;
+	struct strbuf head = STRBUF_INIT;
 	struct stat s;
 	struct cgit_repo *r = (struct cgit_repo *)repo;
+	const char *ref;
 
 	if (repo->mtime != -1) {
 		*mtime = repo->mtime;
-		return 1;
+		return repo->mtime != 0;
 	}
 	strbuf_addf(&path, "%s/%s", repo->path, ctx.cfg.agefile);
 	if (stat(path.buf, &s) == 0) {
@@ -58,12 +60,22 @@ static int get_repo_modtime(const struct cgit_repo *repo, time_t *mtime)
 	}
 
 	strbuf_reset(&path);
-	strbuf_addf(&path, "%s/refs/heads/%s", repo->path,
-		    repo->defbranch ? repo->defbranch : "master");
-	if (stat(path.buf, &s) == 0) {
-		*mtime = s.st_mtime;
-		r->mtime = *mtime;
-		goto end;
+	strbuf_addf(&path, "%s/HEAD", repo->path);
+	if (strbuf_read_file(&head, path.buf, 64) >= 0) {
+		strbuf_trim(&head);
+		if (skip_prefix(head.buf, "ref: ", &ref)) {
+			strbuf_reset(&path);
+			strbuf_addf(&path, "%s/%s", repo->path, ref);
+			if (stat(path.buf, &s) == 0) {
+				*mtime = s.st_mtime;
+				r->mtime = *mtime;
+				goto end;
+			}
+		} else if (head.len && stat(path.buf, &s) == 0) {
+			*mtime = s.st_mtime;
+			r->mtime = *mtime;
+			goto end;
+		}
 	}
 
 	strbuf_reset(&path);
@@ -77,6 +89,7 @@ static int get_repo_modtime(const struct cgit_repo *repo, time_t *mtime)
 	*mtime = 0;
 	r->mtime = *mtime;
 end:
+	strbuf_release(&head);
 	strbuf_release(&path);
 	return (r->mtime != 0);
 }
@@ -96,22 +109,11 @@ static int is_match(struct cgit_repo *repo)
 	return 0;
 }
 
-static int is_in_url(struct cgit_repo *repo)
-{
-	if (!ctx.qry.url)
-		return 1;
-	if (repo->url && starts_with(repo->url, ctx.qry.url))
-		return 1;
-	return 0;
-}
-
 static int is_visible(struct cgit_repo *repo)
 {
 	if (repo->hide || repo->ignore)
 		return 0;
-	if (!(is_match(repo) && is_in_url(repo)))
-		return 0;
-	return 1;
+	return is_match(repo);
 }
 
 static int any_repos_visible(void)
@@ -266,7 +268,7 @@ static void url_path(struct strbuf *url, const char *value)
 	const unsigned char *p = (const unsigned char *)(value ? value : "");
 
 	for (; *p; p++) {
-		if (isalnum(*p) || strchr("!$()*,./:;@-[]_~+&", *p))
+		if (isalnum(*p) || *p == '/' || *p == '_')
 			strbuf_addch(url, *p);
 		else
 			strbuf_addf(url, "%%%02x", *p);
@@ -312,31 +314,15 @@ static char *repo_url(const struct cgit_repo *repo, const char *page,
 		      const char *query)
 {
 	struct strbuf url = STRBUF_INIT;
-	const char *delimiter = "?";
 
-	if (ctx.cfg.virtual_root) {
-		url_path(&url, ctx.cfg.virtual_root);
-		url_path(&url, repo->url);
-		if (repo->url[strlen(repo->url) - 1] != '/')
-			strbuf_addch(&url, '/');
-		if (page) {
-			url_path(&url, page);
-			strbuf_addch(&url, '/');
-		}
-	} else {
-		url_path(&url, ctx.cfg.script_name);
-		strbuf_addstr(&url, "?url=");
-		url_arg(&url, repo->url);
-		if (repo->url[strlen(repo->url) - 1] != '/')
-			strbuf_addch(&url, '/');
-		if (page) {
-			url_arg(&url, page);
-			strbuf_addch(&url, '/');
-		}
-		delimiter = "&";
+	strbuf_addch(&url, '/');
+	url_path(&url, repo->url);
+	if (page) {
+		strbuf_addstr(&url, "/+/HEAD/+/");
+		url_path(&url, page);
 	}
 	if (query)
-		strbuf_addf(&url, "%s%s", delimiter, query);
+		strbuf_addf(&url, "?%s", query);
 	return strbuf_detach(&url, NULL);
 }
 
@@ -428,7 +414,7 @@ void cgit_print_repolist(void)
 	json_key("title"); json_value(ctx.cfg.root_title); json(",");
 	json_key("root_desc"); json_value(ctx.cfg.root_desc); json(",");
 	json_key("root_url"); json_value(cgit_rooturl()); json(",");
-	json_key("about_url"); { struct strbuf about = STRBUF_INIT; strbuf_addf(&about, "%s?p=about", cgit_rooturl()); json_value(about.buf); strbuf_release(&about); } json(",");
+	json_key("about_url"); json_value("/-/about"); json(",");
 	json_key("noheader"); json_bool(ctx.cfg.noheader); json(",");
 	json_key("search"); json_value(ctx.qry.search); json(",");
 	json_key("current_url"); { char *url = cgit_currenturl(); json_value(url); free(url); } json(",");
@@ -443,6 +429,8 @@ void cgit_print_repolist(void)
 	json_key("rows"); json("[");
 	for (i = 0; i < cgit_repolist.count; i++) {
 		struct cgit_repo *repo = &cgit_repolist.repos[i];
+		time_t mtime;
+		int populated;
 		char *section, *url;
 		if (!is_visible(repo)) continue;
 		hits++;
@@ -469,8 +457,9 @@ void cgit_print_repolist(void)
 		json_key("owner"); json_value(repo->owner); json(",");
 		json_key("owner_url"); { char *current = cgit_currenturl(); struct strbuf owner = STRBUF_INIT; strbuf_addf(&owner, "%s?q=", current); url_arg(&owner, repo->owner); json_value(owner.buf); strbuf_release(&owner); free(current); } json(",");
 		json_key("idle"); json_age(repo); json(",");
-		json_key("log_url"); url = repo_url(repo, "log", ctx.qry.showmsg ? "showmsg=1" : NULL); json_value(url); free(url); json(",");
-		json_key("tree_url"); url = repo_url(repo, "tree", NULL); json_value(url); free(url);
+		populated = get_repo_modtime(repo, &mtime);
+		json_key("log_url"); if (populated) { url = repo_url(repo, "log", ctx.qry.showmsg ? "showmsg=1" : NULL); json_value(url); free(url); } else json("null"); json(",");
+		json_key("tree_url"); if (populated) { url = repo_url(repo, "tree", NULL); json_value(url); free(url); } else json("null");
 		json("}"); first = 0;
 	}
 	json("],");

@@ -31,6 +31,12 @@
         "cache": { "type": "integer", "minimum": 0, "maximum": 3600 }
       }
     },
+    "http": {
+      "type": "object",
+      "properties": {
+        "write": { "type": "boolean" }
+      }
+    },
     "persistence": {
       "type": "object",
       "properties": {

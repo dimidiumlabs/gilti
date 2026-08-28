@@ -75,47 +75,15 @@ char *cgit_hosturl(void)
 
 char *cgit_currenturl(void)
 {
-	const char *root = cgit_rooturl();
-
-	if (!ctx.qry.url)
-		return xstrdup(root);
-	if (root[0] && root[strlen(root) - 1] == '/')
-		return fmtalloc("%s%s", root, ctx.qry.url);
-	return fmtalloc("%s/%s", root, ctx.qry.url);
+	return xstrdup(ctx.qry.url ? ctx.qry.url : cgit_rooturl());
 }
 
 char *cgit_currentfullurl(void)
 {
-	const char *root = cgit_rooturl();
-	const char *orig_query = ctx.env.query_string ? ctx.env.query_string : "";
-	size_t len = strlen(orig_query);
-	char *query = xmalloc(len + 2), *start_url, *ret;
+	const char *url = ctx.qry.url ? ctx.qry.url : cgit_rooturl();
+	const char *query = ctx.env.query_string;
 
-	/* Remove all url=... parts from query string */
-	memcpy(query + 1, orig_query, len + 1);
-	query[0] = '?';
-	start_url = query;
-	while ((start_url = strstr(start_url, "url=")) != NULL) {
-		if (start_url[-1] == '?' || start_url[-1] == '&') {
-			const char *end_url = strchr(start_url, '&');
-			if (end_url)
-				memmove(start_url, end_url + 1, strlen(end_url));
-			else
-				start_url[0] = '\0';
-		} else
-			++start_url;
-	}
-	if (!query[1])
-		query[0] = '\0';
-
-	if (!ctx.qry.url)
-		ret = fmtalloc("%s%s", root, query);
-	else if (root[0] && root[strlen(root) - 1] == '/')
-		ret = fmtalloc("%s%s%s", root, ctx.qry.url, query);
-	else
-		ret = fmtalloc("%s/%s%s", root, ctx.qry.url, query);
-	free(query);
-	return ret;
+	return query && *query ? fmtalloc("%s?%s", url, query) : xstrdup(url);
 }
 
 const char *cgit_rooturl(void)
@@ -126,38 +94,110 @@ const char *cgit_rooturl(void)
 		return ctx.cfg.script_name;
 }
 
+static void add_url_path(struct strbuf *url, const char *value)
+{
+	const unsigned char *p = (const unsigned char *)(value ? value : "");
+
+	for (; *p; p++) {
+		if (isalnum(*p) || *p == '/' || *p == '_')
+			strbuf_addch(url, *p);
+		else
+			strbuf_addf(url, "%%%02x", *p);
+	}
+}
+
+static void add_repo_url(struct strbuf *url, const char *reponame)
+{
+	strbuf_addch(url, '/');
+	add_url_path(url, reponame);
+}
+
+static const char *link_revision(const char *head, const char *rev)
+{
+	return rev ? rev : head ? head : "HEAD";
+}
+
+static void add_revision(struct strbuf *url, const char *revision)
+{
+	struct object_id oid;
+
+	if (!strcmp(revision, "HEAD") || starts_with(revision, "refs/") ||
+	    !get_oid_hex(revision, &oid))
+		add_url_path(url, revision);
+	else {
+		strbuf_addstr(url, "refs/heads/");
+		add_url_path(url, revision);
+	}
+}
+
+static char *repo_view_url(const char *reponame, const char *page,
+			   const char *revision, const char *path)
+{
+	struct strbuf url = STRBUF_INIT;
+
+	add_repo_url(&url, reponame);
+	if (!page || !strcmp(page, "summary"))
+		return strbuf_detach(&url, NULL);
+	strbuf_addstr(&url, "/+/");
+	if (!strcmp(page, "about") || !strcmp(page, "stats") ||
+	    !strcmp(page, "refs")) {
+		strbuf_addstr(&url, page);
+		return strbuf_detach(&url, NULL);
+	}
+	add_revision(&url, revision ? revision : "HEAD");
+	if (strcmp(page, "commit")) {
+		strbuf_addstr(&url, "/+/");
+		strbuf_addstr(&url, !strcmp(page, "plain") ? "tree" : page);
+		if (path) {
+			strbuf_addch(&url, '/');
+			add_url_path(&url, path);
+		}
+	}
+	return strbuf_detach(&url, NULL);
+}
+
 char *cgit_repourl(const char *reponame)
 {
-	if (ctx.cfg.virtual_root)
-		return fmtalloc("%s%s/", ctx.cfg.virtual_root, reponame);
-	else
-		return fmtalloc("?r=%s", reponame);
+	return repo_view_url(reponame, NULL, NULL, NULL);
 }
 
 char *cgit_fileurl(const char *reponame, const char *pagename,
 		   const char *filename, const char *query)
 {
-	struct strbuf sb = STRBUF_INIT;
-	char *delim;
+	char *url = repo_view_url(reponame,
+				  !strcmp(pagename, "atom") ? "feed/atom" : pagename,
+				  ctx.qry.head, filename);
+	char *result;
 
-	if (ctx.cfg.virtual_root) {
-		strbuf_addf(&sb, "%s%s/%s/%s", ctx.cfg.virtual_root, reponame,
-			    pagename, (filename ? filename:""));
-		delim = "?";
-	} else {
-		strbuf_addf(&sb, "?url=%s/%s/%s", reponame, pagename,
-			    (filename ? filename : ""));
-		delim = "&amp;";
-	}
-	if (query)
-		strbuf_addf(&sb, "%s%s", delim, query);
-	return strbuf_detach(&sb, NULL);
+	if (!query)
+		return url;
+	result = fmtalloc("%s?%s", url, query);
+	free(url);
+	return result;
 }
 
 char *cgit_pageurl(const char *reponame, const char *pagename,
 		   const char *query)
 {
 	return cgit_fileurl(reponame, pagename, NULL, query);
+}
+
+char *cgit_revurl(const char *reponame, const char *revision)
+{
+	return repo_view_url(reponame, "commit", revision, NULL);
+}
+
+char *cgit_treeurl(const char *reponame, const char *revision,
+		   const char *path, const char *fragment)
+{
+	char *url = repo_view_url(reponame, "tree", revision, path);
+	char *result;
+
+	if (!fragment)
+		return url;
+	result = fmtalloc("%s#%s", url, fragment);
+	free(url);
+	return result;
 }
 
 const char *cgit_repobasename(const char *reponame)
@@ -202,7 +242,9 @@ static void site_url(const char *page, const char *search, const char *sort, int
 {
 	char *delim = "?";
 
-	if (always_root || page)
+	if (page)
+		htmlf("/-/%s", page);
+	else if (always_root)
 		html_attr(cgit_rooturl());
 	else {
 		char *currenturl = cgit_currenturl();
@@ -210,10 +252,6 @@ static void site_url(const char *page, const char *search, const char *sort, int
 		free(currenturl);
 	}
 
-	if (page) {
-		htmlf("?p=%s", page);
-		delim = "&amp;";
-	}
 	if (search) {
 		html(delim);
 		html("q=");
@@ -259,11 +297,8 @@ void cgit_index_link(const char *name, const char *title, const char *class,
 	site_link(NULL, name, title, class, pattern, sort, ofs, always_root);
 }
 
-static char *repolink(const char *title, const char *class, const char *page,
-		      const char *head, const char *path)
+static void link_start(const char *url, const char *title, const char *class)
 {
-	char *delim = "?";
-
 	html("<a");
 	if (title) {
 		html(" title='");
@@ -276,52 +311,33 @@ static char *repolink(const char *title, const char *class, const char *page,
 		html("'");
 	}
 	html(" href='");
-	if (ctx.cfg.virtual_root) {
-		html_url_path(ctx.cfg.virtual_root);
-		html_url_path(ctx.repo->url);
-		if (ctx.repo->url[strlen(ctx.repo->url) - 1] != '/')
-			html("/");
-		if (page) {
-			html_url_path(page);
-			html("/");
-			if (path)
-				html_url_path(path);
-		}
-	} else {
-		html_url_path(ctx.cfg.script_name);
-		html("?url=");
-		html_url_arg(ctx.repo->url);
-		if (ctx.repo->url[strlen(ctx.repo->url) - 1] != '/')
-			html("/");
-		if (page) {
-			html_url_arg(page);
-			html("/");
-			if (path)
-				html_url_arg(path);
-		}
-		delim = "&amp;";
-	}
-	if (head && ctx.repo->defbranch && strcmp(head, ctx.repo->defbranch)) {
-		html(delim);
-		html("h=");
-		html_url_arg(head);
-		delim = "&amp;";
-	}
-	return fmt("%s", delim);
+	html_attr(url);
+}
+
+static char *repolink(const char *title, const char *class, const char *page,
+		      const char *head, const char *path)
+{
+	char *url = repo_view_url(ctx.repo->url, page, head, path);
+
+	link_start(url, title, class);
+	free(url);
+	return "?";
 }
 
 static void reporevlink(const char *page, const char *name, const char *title,
 			const char *class, const char *head, const char *rev,
 			const char *path)
 {
-	char *delim;
+	char *url = repo_view_url(ctx.repo->url, page,
+				  link_revision(head, rev), path);
 
-	delim = repolink(title, class, page, head, path);
-	if (rev && ctx.qry.head != NULL && strcmp(rev, ctx.qry.head)) {
-		html(delim);
-		html("id=");
-		html_url_arg(rev);
+	if (!strcmp(page ? page : "", "plain")) {
+		char *raw = fmtalloc("%s?format=raw", url);
+		free(url);
+		url = raw;
 	}
+	link_start(url, title, class);
+	free(url);
 	html("'>");
 	html_txt(name);
 	html("</a>");
@@ -336,7 +352,11 @@ void cgit_summary_link(const char *name, const char *title, const char *class,
 void cgit_tag_link(const char *name, const char *title, const char *class,
 		   const char *tag)
 {
-	reporevlink("tag", name, title, class, tag, NULL, NULL);
+	char *ref = starts_with(tag, "refs/tags/") ? xstrdup(tag) :
+		fmtalloc("refs/tags/%s", tag);
+
+	reporevlink("commit", name, title, class, ref, NULL, NULL);
+	free(ref);
 }
 
 void cgit_tree_link(const char *name, const char *title, const char *class,
@@ -364,13 +384,7 @@ void cgit_log_link(const char *name, const char *title, const char *class,
 {
 	char *delim;
 
-	delim = repolink(title, class, "log", head, path);
-	if (rev && ctx.qry.head && strcmp(rev, ctx.qry.head)) {
-		html(delim);
-		html("id=");
-		html_url_arg(rev);
-		delim = "&amp;";
-	}
+	delim = repolink(title, class, "log", link_revision(head, rev), path);
 	if (grep && pattern) {
 		html(delim);
 		html("qt=");
@@ -405,13 +419,7 @@ void cgit_commit_link(const char *name, const char *title, const char *class,
 {
 	char *delim;
 
-	delim = repolink(title, class, "commit", head, path);
-	if (rev && ctx.qry.head && strcmp(rev, ctx.qry.head)) {
-		html(delim);
-		html("id=");
-		html_url_arg(rev);
-		delim = "&amp;";
-	}
+	delim = repolink(title, class, "commit", link_revision(head, rev), NULL);
 	if (ctx.qry.difftype) {
 		html(delim);
 		htmlf("dt=%d", ctx.qry.difftype);
@@ -454,28 +462,48 @@ void cgit_snapshot_link(const char *name, const char *title, const char *class,
 			const char *head, const char *rev,
 			const char *archivename)
 {
-	reporevlink("snapshot", name, title, class, head, rev, archivename);
+	const char *format = NULL;
+	const struct cgit_snapshot_format *f;
+	char *url, *full;
+	int signature = ends_with(archivename, ".asc");
+
+	for (f = cgit_snapshot_formats; f->suffix; f++)
+		if (strstr(archivename, f->suffix)) {
+			format = f->suffix + 1;
+			break;
+		}
+	if (!format)
+		return;
+	url = repo_view_url(ctx.repo->url,
+			    signature ? "archive-signature" : "archive",
+			    link_revision(head, rev), NULL);
+	full = fmtalloc("%s?format=%s", url, format);
+	free(url);
+	link_start(full, title, class);
+	free(full);
+	html("'>");
+	html_txt(name);
+	html("</a>");
 }
 
 void cgit_diff_link(const char *name, const char *title, const char *class,
 		    const char *head, const char *new_rev, const char *old_rev,
 		    const char *path)
 {
-	char *delim;
+	struct strbuf url = STRBUF_INIT;
+	char *delim = "?";
 
-	delim = repolink(title, class, "diff", head, path);
-	if (new_rev && ctx.qry.head != NULL && strcmp(new_rev, ctx.qry.head)) {
-		html(delim);
-		html("id=");
-		html_url_arg(new_rev);
-		delim = "&amp;";
+	add_repo_url(&url, ctx.repo->url);
+	strbuf_addstr(&url, "/+/diff/");
+	add_revision(&url, old_rev ? old_rev : "HEAD");
+	strbuf_addstr(&url, "..");
+	add_revision(&url, link_revision(head, new_rev));
+	if (path) {
+		strbuf_addstr(&url, "/+/");
+		add_url_path(&url, path);
 	}
-	if (old_rev) {
-		html(delim);
-		html("id2=");
-		html_url_arg(old_rev);
-		delim = "&amp;";
-	}
+	link_start(url.buf, title, class);
+	strbuf_release(&url);
 	if (ctx.qry.difftype) {
 		html(delim);
 		htmlf("dt=%d", ctx.qry.difftype);
@@ -504,7 +532,33 @@ void cgit_diff_link(const char *name, const char *title, const char *class,
 void cgit_patch_link(const char *name, const char *title, const char *class,
 		     const char *head, const char *rev, const char *path)
 {
-	reporevlink("patch", name, title, class, head, rev, path);
+	struct strbuf url = STRBUF_INIT;
+	struct object_id oid;
+	struct commit *commit;
+	const char *new_rev = link_revision(head, rev);
+	char *old_rev = xstrdup("HEAD");
+
+	if (!repo_get_oid(the_repository, new_rev, &oid) &&
+	    (commit = lookup_commit_reference(the_repository, &oid)) &&
+	    commit->parents) {
+		free(old_rev);
+		old_rev = xstrdup(oid_to_hex(&commit->parents->item->object.oid));
+	}
+	add_repo_url(&url, ctx.repo->url);
+	strbuf_addstr(&url, "/+/patch/");
+	add_revision(&url, old_rev);
+	strbuf_addstr(&url, "..");
+	add_revision(&url, new_rev);
+	if (path) {
+		strbuf_addstr(&url, "/+/");
+		add_url_path(&url, path);
+	}
+	link_start(url.buf, title, class);
+	strbuf_release(&url);
+	free(old_rev);
+	html("'>");
+	html_txt(name);
+	html("</a>");
 }
 
 void cgit_stats_link(const char *name, const char *title, const char *class,
@@ -541,7 +595,7 @@ static void cgit_self_link(char *name, const char *title, const char *class)
 			      ctx.qry.path, ctx.qry.ofs,
 			      ctx.qry.grep, ctx.qry.search,
 			      ctx.qry.showmsg, ctx.qry.follow);
-	else if (!strcmp(ctx.qry.page, "commit"))
+	else if (!strcmp(ctx.qry.page, "commit") || !strcmp(ctx.qry.page, "revision"))
 		cgit_commit_link(name, title, class, ctx.qry.head,
 				 ctx.qry.has_oid ? ctx.qry.oid : NULL,
 				 ctx.qry.path);
@@ -816,31 +870,27 @@ void cgit_print_docstart(void)
 	if (ctx.cfg.css.items)
 		for_each_string_list(&ctx.cfg.css, emit_css_link, NULL);
 	else
-		emit_css_link(NULL, "/cgit.css");
+		emit_css_link(NULL, "/-/assets/cgit.css");
 
 	if (ctx.cfg.js.items)
 		for_each_string_list(&ctx.cfg.js, emit_js_link, NULL);
 	else
-		emit_js_link(NULL, "/cgit.js");
+		emit_js_link(NULL, "/-/assets/cgit.js");
 
 	if (ctx.cfg.favicon && *ctx.cfg.favicon) {
 		html("<link rel='shortcut icon' href='");
 		html_attr(ctx.cfg.favicon);
 		html("'/>\n");
 	}
-	if (host && ctx.repo && ctx.qry.head) {
+	if (host && ctx.repo && ctx.qry.head && starts_with(ctx.qry.head, "refs/")) {
 		char *fileurl;
-		struct strbuf sb = STRBUF_INIT;
-		strbuf_addf(&sb, "h=%s", ctx.qry.head);
 
 		html("<link rel='alternate' title='Atom feed' href='");
 		html(cgit_httpscheme());
 		html_attr(host);
-		fileurl = cgit_fileurl(ctx.repo->url, "atom", ctx.qry.vpath,
-				       sb.buf);
+		fileurl = cgit_fileurl(ctx.repo->url, "atom", ctx.qry.vpath, NULL);
 		html_attr(fileurl);
 		html("' type='application/atom+xml'/>\n");
-		strbuf_release(&sb);
 		free(fileurl);
 	}
 	if (ctx.repo)
@@ -927,38 +977,39 @@ void cgit_add_clone_urls(void (*fn)(const char *))
 {
 	if (ctx.repo->clone_url)
 		add_clone_urls(fn, expand_macros(ctx.repo->clone_url), NULL);
-	else if (ctx.cfg.clone_prefix)
-		add_clone_urls(fn, ctx.cfg.clone_prefix, ctx.repo->url);
+	else if (ctx.cfg.clone_prefix) {
+		char *suffix = fmtalloc("%s.git", ctx.repo->url);
+		add_clone_urls(fn, ctx.cfg.clone_prefix, suffix);
+		free(suffix);
+	} else {
+		char *host = cgit_hosturl();
+		struct strbuf url = STRBUF_INIT;
+
+		if (!host)
+			return;
+		strbuf_addf(&url, "%s%s", cgit_httpscheme(), host);
+		add_repo_url(&url, ctx.repo->url);
+		strbuf_addstr(&url, ".git");
+		fn(url.buf);
+		strbuf_release(&url);
+		free(host);
+	}
 }
 
-static int print_branch_option(const struct reference *ref, void *cb_data)
+static int print_branch_option(const struct reference *ref, void *cb_data UNUSED)
 {
-	char *name = (char *)ref->name;
-	html_option(name, name, ctx.qry.head);
+	char *url = repo_view_url(ctx.repo->url, "tree", ref->name,
+				  ctx.qry.vpath);
+
+	html_option(url, ref->name,
+		    ctx.qry.head && !strcmp(ref->name, ctx.qry.head) ? url : NULL);
+	free(url);
 	return 0;
 }
 
-void cgit_add_hidden_formfields(int incl_head, int incl_search,
-				const char *page)
+void cgit_add_hidden_formfields(int incl_head UNUSED, int incl_search,
+				const char *page UNUSED)
 {
-	if (!ctx.cfg.virtual_root) {
-		struct strbuf url = STRBUF_INIT;
-
-		strbuf_addf(&url, "%s/%s", ctx.qry.repo, page);
-		if (ctx.qry.vpath)
-			strbuf_addf(&url, "/%s", ctx.qry.vpath);
-		html_hidden("url", url.buf);
-		strbuf_release(&url);
-	}
-
-	if (incl_head && ctx.qry.head && ctx.repo->defbranch &&
-	    strcmp(ctx.qry.head, ctx.repo->defbranch))
-		html_hidden("h", ctx.qry.head);
-
-	if (ctx.qry.oid)
-		html_hidden("id", ctx.qry.oid);
-	if (ctx.qry.oid2)
-		html_hidden("id2", ctx.qry.oid2);
 	if (ctx.qry.showmsg)
 		html_hidden("showmsg", "1");
 
@@ -982,17 +1033,26 @@ static void cgit_print_path_crumbs(char *path)
 {
 	char *old_path = ctx.qry.path;
 	char *p = path, *q, *end = path + strlen(path);
+	int blame = !strcmp(ctx.qry.page, "blame");
 	int levels = 0;
 
 	ctx.qry.path = NULL;
-	cgit_self_link("root", NULL, NULL);
+	if (blame)
+		cgit_tree_link("root", NULL, NULL, ctx.qry.head,
+			       ctx.qry.oid, NULL);
+	else
+		cgit_self_link("root", NULL, NULL);
 	ctx.qry.path = p = path;
 	while (p < end) {
 		if (!(q = strchr(p, '/')) || levels > 15)
 			q = end;
 		*q = '\0';
 		html_txt("/");
-		cgit_self_link(p, NULL, NULL);
+		if (blame && q < end)
+			cgit_tree_link(p, NULL, NULL, ctx.qry.head,
+				       ctx.qry.oid, ctx.qry.path);
+		else
+			cgit_self_link(p, NULL, NULL);
 		if (q < end)
 			*q = '/';
 		p = q + 1;
@@ -1033,17 +1093,13 @@ static void print_header(void)
 		html(" : ");
 		cgit_summary_link(ctx.repo->name, NULL, NULL, NULL);
 		html("</td><td class='form'>");
-		html("<form method='get'>\n");
-		cgit_add_hidden_formfields(0, 1, ctx.qry.page);
-		html("<select name='h' onchange='this.form.submit();'>\n");
+		html("<select onchange='window.location.href=this.value'>\n");
 		refs_for_each_branch_ref(get_main_ref_store(the_repository),
 					 print_branch_option, ctx.qry.head);
 		if (ctx.repo->enable_remote_branches)
 			refs_for_each_remote_ref(get_main_ref_store(the_repository),
 						 print_branch_option, ctx.qry.head);
-		html("</select> ");
-		html("<input type='submit' value='switch'/>");
-		html("</form>");
+		html("</select>");
 	} else
 		html_txt(ctx.cfg.root_title);
 	html("</td></tr>\n");
@@ -1085,7 +1141,8 @@ void cgit_print_pageheader(void)
 		else
 			cgit_tree_link("tree", NULL, hc("tree"), ctx.qry.head,
 				       ctx.qry.oid, ctx.qry.vpath);
-		cgit_commit_link("commit", NULL, hc("commit"),
+		cgit_commit_link("commit", NULL,
+				 ctx.qry.page && !strcmp(ctx.qry.page, "revision") ? "active" : hc("commit"),
 				 ctx.qry.head, ctx.qry.oid, ctx.qry.vpath);
 		cgit_diff_link("diff", NULL, hc("diff"), ctx.qry.head,
 			       ctx.qry.oid, ctx.qry.oid2, ctx.qry.vpath);
@@ -1102,7 +1159,7 @@ void cgit_print_pageheader(void)
 		if (ctx.cfg.virtual_root) {
 			char *fileurl = cgit_fileurl(ctx.qry.repo, "log",
 						   ctx.qry.vpath, NULL);
-			html_url_path(fileurl);
+			html_attr(fileurl);
 			free(fileurl);
 		}
 		html("'>\n");

@@ -185,6 +185,12 @@ impl ResponseCache {
     }
 }
 
+#[derive(Clone, Default)]
+pub struct Environment(pub Vec<(std::ffi::OsString, std::ffi::OsString)>);
+
+#[derive(Clone, Copy)]
+pub struct NoCache;
+
 #[derive(Clone, Copy)]
 pub struct RemoteAddr(pub std::net::SocketAddr);
 
@@ -237,10 +243,15 @@ impl Cgi {
             |value| value.0,
         );
         let (parts, body) = request.into_parts();
-        let body = axum::body::to_bytes(body, 1024 * 1024)
+        let body = axum::body::to_bytes(body, 1024 * 1024 * 1024)
             .await
             .map_err(std::io::Error::other)?;
-        let cache_key = CacheKey::from_request(&parts, &body);
+        let cache_key = parts
+            .extensions
+            .get::<NoCache>()
+            .is_none()
+            .then(|| CacheKey::from_request(&parts, &body))
+            .flatten();
         if let Some(response) = self
             .cache
             .as_ref()
@@ -311,6 +322,10 @@ impl Cgi {
                     value,
                 );
             }
+        }
+
+        if let Some(environment) = parts.extensions.get::<Environment>() {
+            command.envs(environment.0.iter().cloned());
         }
 
         let mut child = command.spawn()?;

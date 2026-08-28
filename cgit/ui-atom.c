@@ -19,7 +19,6 @@
 
 static void add_entry(struct commit *commit, const char *host)
 {
-	char delim = '&';
 	char *hex;
 	char *mail, *t, *t2;
 	struct commitinfo *info;
@@ -65,11 +64,8 @@ static void add_entry(struct commit *commit, const char *host)
 		html("<link rel='alternate' type='text/html' href='");
 		html(cgit_httpscheme());
 		html_attr(host);
-		pageurl = cgit_pageurl(ctx.repo->url, "commit", NULL);
+		pageurl = cgit_revurl(ctx.repo->url, hex);
 		html_attr(pageurl);
-		if (ctx.cfg.virtual_root)
-			delim = '?';
-		html_attrf("%cid=%s", delim, hex);
 		html("'/>\n");
 		free(pageurl);
 	}

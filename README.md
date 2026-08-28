@@ -9,12 +9,15 @@ platforms but aren't ready to host complex services like Forgejo.
 
 ## Security boundary
 
-- Git fetch and push use SSH public-key authentication through `gilti-ssh`.
+- Git fetch is available anonymously over smart HTTP; authenticated fetch and
+  push use SSH public-key authentication through `gilti-ssh`.
 - Every configured key has read/write access to every repository and may create
   a repository by pushing to its name for the first time.
-- cgit is anonymous and read-only; every repository is publicly visible.
-- Smart HTTP, password authentication, shells, forwarding, and tunnels are
-  disabled; cgit filters are not supported.
+- Repository browsing, archives, LFS downloads, and smart HTTP fetches are
+  anonymous and read-only; every repository is publicly visible.
+- Password authentication, shells, forwarding, and tunnels are disabled; cgit
+  filters are not supported. Optional unauthenticated HTTP writes must be
+  enabled explicitly.
 - Gilti is a single-replica service backed by one POSIX persistent volume. It is
   not an HA system.
 
@@ -44,7 +47,8 @@ The HTTP configuration is read from the environment at startup:
 - `GILTI_CGIT_ROOT_TITLE` (default: `Gilti`);
 - `GILTI_CGIT_ROOT_DESCRIPTION` (default: `A tiny Git server`);
 - `GILTI_CGIT_CLONE_PREFIX` (empty by default);
-- `GILTI_CGIT_CACHE` (default: `5`, maximum: `3600` seconds).
+- `GILTI_CGIT_CACHE` (default: `5`, maximum: `3600` seconds);
+- `GILTI_HTTP_WRITE` (`0` by default; `1` enables unauthenticated HTTP pushes and LFS uploads).
 
 Gilti snapshots the authorized keys file at process startup; changing it takes
 effect after a restart. Repositories and the persistent SSH host key live on

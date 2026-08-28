@@ -43,29 +43,16 @@ static void atom_fn(void)
 
 static void about_fn(void)
 {
-	if (ctx.repo) {
-		size_t path_info_len = ctx.env.path_info ? strlen(ctx.env.path_info) : 0;
-		if (!ctx.qry.path &&
-		    ctx.qry.url[strlen(ctx.qry.url) - 1] != '/' &&
-		    (!path_info_len || ctx.env.path_info[path_info_len - 1] != '/')) {
-			char *currenturl = cgit_currenturl();
-			char *redirect = fmtalloc("%s/", currenturl);
-			cgit_redirect(redirect, true);
-			free(currenturl);
-			free(redirect);
-		} else if (ctx.repo->readme.nr)
-			cgit_print_repo_readme(ctx.qry.path);
-		else if (ctx.repo->homepage)
-			cgit_redirect(ctx.repo->homepage, false);
-		else {
-			char *currenturl = cgit_currenturl();
-			char *redirect = fmtalloc("%s../", currenturl);
-			cgit_redirect(redirect, false);
-			free(currenturl);
-			free(redirect);
-		}
-	} else
+	if (!ctx.repo) {
 		cgit_print_site_readme();
+		return;
+	}
+	if (ctx.repo->readme.nr)
+		cgit_print_repo_readme(NULL);
+	else if (ctx.repo->homepage)
+		cgit_redirect(ctx.repo->homepage, false);
+	else
+		cgit_print_error_page(404, "Not found", "No repository documentation");
 }
 
 static void blame_fn(void)
@@ -84,6 +71,14 @@ static void blob_fn(void)
 static void commit_fn(void)
 {
 	cgit_print_commit(ctx.qry.oid, ctx.qry.path);
+}
+
+static void revision_fn(void)
+{
+	if (ctx.qry.oid && starts_with(ctx.qry.oid, "refs/tags/"))
+		cgit_print_tag(ctx.qry.oid);
+	else
+		cgit_print_commit(ctx.qry.oid, NULL);
 }
 
 static void diff_fn(void)
@@ -136,8 +131,16 @@ static void refs_fn(void)
 
 static void snapshot_fn(void)
 {
-	cgit_print_snapshot(ctx.qry.head, ctx.qry.oid, ctx.qry.path,
-			    ctx.qry.nohead);
+	char *filename;
+
+	if (!ctx.qry.format) {
+		cgit_print_error_page(400, "Bad request", "Archive format is required");
+		return;
+	}
+	filename = fmtalloc("%s.%s%s", cgit_snapshot_prefix(ctx.repo),
+			    ctx.qry.format, ctx.qry.signature ? ".asc" : "");
+	cgit_print_snapshot(ctx.qry.head, ctx.qry.oid, filename, 0);
+	free(filename);
 }
 
 static void stats_fn(void)
@@ -180,6 +183,7 @@ struct cgit_cmd *cgit_get_cmd(void)
 		def_cmd(plain, 1, 0, 0),
 		def_cmd(rawdiff, 1, 1, 0),
 		def_cmd(refs, 1, 0, 0),
+		def_cmd(revision, 1, 0, 0),
 		def_cmd(repolist, 0, 0, 0),
 		def_cmd(snapshot, 1, 0, 0),
 		def_cmd(stats, 1, 1, 0),

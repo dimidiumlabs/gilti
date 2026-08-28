@@ -56,7 +56,7 @@ start() {
         "$image" >/dev/null
 
     i=0
-    until curl -fsS "http://127.0.0.1:$http_port/healthz" >/dev/null 2>&1; do
+    until curl -fsS "http://127.0.0.1:$http_port/-/health" >/dev/null 2>&1; do
         i=$((i + 1))
         if [ "$i" -ge 60 ]; then
             "$engine" logs "$name" >&2
@@ -109,30 +109,30 @@ for expected in \
         exit 1
     }
 done
-[ "$(curl -fsS "http://127.0.0.1:$http_port/healthz")" = ok ] || {
+[ "$(curl -fsS "http://127.0.0.1:$http_port/-/health")" = '{"status":"ok"}' ] || {
     echo 'unexpected health response' >&2
     exit 1
 }
 status=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$http_port/")
-[ "$status" = 403 ] || {
-    echo "POST to cgit returned HTTP $status instead of 403" >&2
+[ "$status" = 405 ] || {
+    echo "POST to repository browser returned HTTP $status instead of 405" >&2
     exit 1
 }
-curl -fsS "http://127.0.0.1:$http_port/cgit.css" | grep -q 'cgit'
-content_type=$(curl -fsSI "http://127.0.0.1:$http_port/cgit.css" |
+curl -fsS "http://127.0.0.1:$http_port/-/assets/cgit.css" | grep -q 'cgit'
+content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/cgit.css" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
 [ "$content_type" = text/css ] || {
     echo "unexpected cgit.css content type: $content_type" >&2
     exit 1
 }
-curl -fsS "http://127.0.0.1:$http_port/cgit.js" | grep -q 'function'
-content_type=$(curl -fsSI "http://127.0.0.1:$http_port/cgit.js" |
+curl -fsS "http://127.0.0.1:$http_port/-/assets/cgit.js" | grep -q 'function'
+content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/cgit.js" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
 [ "$content_type" = text/javascript ] || {
     echo "unexpected cgit.js content type: $content_type" >&2
     exit 1
 }
-curl -fsSI "http://127.0.0.1:$http_port/healthz" >/dev/null
+curl -fsSI "http://127.0.0.1:$http_port/-/health" >/dev/null
 
 # shellcheck disable=SC2016 # Expanded by the shell inside the container.
 httpd_uid=$("$engine" exec "$name" sh -c '
@@ -245,7 +245,26 @@ until curl -fsS "http://127.0.0.1:$http_port/" | grep -q 'testing'; do
     [ "$i" -lt 30 ] || { "$engine" logs "$name" >&2; exit 1; }
     sleep 1
 done
-cache_url="http://127.0.0.1:$http_port/testing/"
+curl -fsS "http://127.0.0.1:$http_port/testing" | grep -q 'Initial commit'
+curl -fsS "http://127.0.0.1:$http_port/testing/+/HEAD/+/tree/README%2emd" | grep -q 'Testing'
+summary_status=$(curl -sS -o /dev/null -w '%{http_code}:%{redirect_url}' \
+    "http://127.0.0.1:$http_port/testing/+/summary")
+[ "$summary_status" = "308:http://127.0.0.1:$http_port/testing" ] || {
+    echo "unexpected summary redirect: $summary_status" >&2
+    exit 1
+}
+GIT_CONFIG_GLOBAL=/dev/null git clone -q \
+    "http://127.0.0.1:$http_port/testing.git" "$work/testing-http-clone"
+[ -f "$work/testing-http-clone/README.md" ]
+lfs_oid=2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+lfs_response=$(printf '{"operation":"download","objects":[{"oid":"%s","size":1}]}' "$lfs_oid" |
+    curl -fsS -H 'Content-Type: application/vnd.git-lfs+json' --data-binary @- \
+        "http://127.0.0.1:$http_port/testing.git/info/lfs/objects/batch")
+printf '%s' "$lfs_response" | grep -q '"code":404' || {
+    echo 'unexpected LFS batch response' >&2
+    exit 1
+}
+cache_url="http://127.0.0.1:$http_port/testing"
 curl -fsS -D "$work/cache-1.headers" -o /dev/null "$cache_url"
 sleep 2
 curl -fsS -D "$work/cache-2.headers" -o /dev/null "$cache_url"

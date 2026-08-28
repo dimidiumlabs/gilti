@@ -36,7 +36,7 @@ static void print_url(const char *url)
 	}
 
 	htmlf("<tr><td colspan='%d'><a rel='vcs-git' href='", columns);
-	html_url_path(url);
+	html_attr(url);
 	html("' title='");
 	html_attr(ctx.repo->name);
 	html(" Git repository'>");

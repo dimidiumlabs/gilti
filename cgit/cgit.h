@@ -154,7 +154,6 @@ struct reflist {
 struct cgit_query {
 	int has_oid;
 	int has_difftype;
-	char *raw;
 	char *repo;
 	char *page;
 	char *search;
@@ -163,11 +162,11 @@ struct cgit_query {
 	char *oid;
 	char *oid2;
 	char *path;
-	char *name;
 	char *url;
 	char *period;
+	char *format;
+	int signature;
 	int   ofs;
-	int nohead;
 	char *sort;
 	int showmsg;
 	diff_type difftype;
@@ -329,8 +328,6 @@ extern char *fmtalloc(const char *format,...);
 
 extern struct commitinfo *cgit_parse_commit(struct commit *commit);
 extern struct taginfo *cgit_parse_tag(struct tag *tag);
-extern void cgit_parse_url(const char *url);
-
 extern const char *cgit_repobasename(const char *reponame);
 
 extern int cgit_parse_snapshots_mask(const char *str);

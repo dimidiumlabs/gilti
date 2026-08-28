@@ -56,6 +56,8 @@ spec:
               value: {{ .Values.cgit.clonePrefix | quote }}
             - name: GILTI_CGIT_CACHE
               value: {{ .Values.cgit.cache | quote }}
+            - name: GILTI_HTTP_WRITE
+              value: {{ ternary "1" "0" .Values.http.write | quote }}
           ports:
             - name: http
               containerPort: 8080
@@ -65,18 +67,18 @@ spec:
               protocol: TCP
           startupProbe:
             httpGet:
-              path: /healthz
+              path: /-/health
               port: http
             failureThreshold: 60
             periodSeconds: 5
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /-/health
               port: http
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /-/health
               port: http
             periodSeconds: 20
           resources:

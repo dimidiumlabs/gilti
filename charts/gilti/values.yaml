@@ -24,6 +24,10 @@ cgit:
   # In-memory CGI response lifetime in seconds; zero disables the cache.
   cache: 5
 
+http:
+  # Allow unauthenticated Git receive-pack and LFS uploads.
+  write: false
+
 persistence:
   enabled: true
   existingClaim: ""
