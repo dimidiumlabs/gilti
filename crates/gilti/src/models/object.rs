@@ -36,7 +36,7 @@ mod tests {
     }
 
     #[test]
-    fn reads_raw_text_and_binary_objects_like_cgit_blob() {
+    fn reads_raw_text_and_binary_objects_like_browser_blob() {
         let (root, repository) = fixture();
         let odb = repository.odb().unwrap();
         let text_oid = odb.write(git2::ObjectType::Blob, b"hello\n").unwrap();

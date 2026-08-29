@@ -4,8 +4,10 @@
 pub mod about;
 pub mod archive;
 pub mod archive_signature;
+pub mod atom;
 pub mod blame;
 pub mod diff;
+pub mod log;
 pub mod object;
 pub mod overview;
 pub mod patch;
@@ -33,7 +35,7 @@ pub(crate) fn bad_request(message: &'static str) -> axum::response::Response {
         .expect("static response is valid")
 }
 
-fn bytes_response(
+pub(crate) fn bytes_response(
     content_type: &'static str,
     content_disposition: Option<String>,
     etag: Option<String>,

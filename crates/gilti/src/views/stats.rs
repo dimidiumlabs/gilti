@@ -75,7 +75,7 @@ fn content(model: &crate::models::stats::Stats, query: &Query) -> Markup {
         .unwrap_or(model.authors.len())
         .min(model.authors.len());
     html! {
-        div class="cgit-panel" {
+        div class="gilti-panel" {
             b { "stat options" }
             form method="get" { table {
                 tr { td colspan="2" {} }

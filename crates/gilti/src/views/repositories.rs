@@ -63,14 +63,14 @@ pub async fn serve(
                 title { (&*context.root_title) }
                 meta name="generator" content="Gilti";
                 meta name="robots" content="index, nofollow";
-                link rel="stylesheet" type="text/css" href="/-/assets/cgit.css";
-                script type="text/javascript" src="/-/assets/cgit.js" {}
+                link rel="stylesheet" type="text/css" href="/-/assets/gilti.css";
+                script type="text/javascript" src="/-/assets/gilti.js" {}
                 link rel="shortcut icon" href="/-/assets/favicon.ico";
             }
-            body { div id="cgit" {
+            body { div id="gilti" {
                 table id="header" {
                     tr {
-                        td class="logo" rowspan="2" { a href="/" { img src="/-/assets/cgit.png" alt="cgit logo"; } }
+                        td class="logo" rowspan="2" { a href="/" { img src="/-/assets/gilti.png" alt="gilti logo"; } }
                         td class="main" { (&*context.root_title) }
                     }
                     tr { td class="sub" { (&*context.root_description) } }

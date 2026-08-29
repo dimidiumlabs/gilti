@@ -134,7 +134,7 @@ pub fn content(
 }
 
 pub fn content_controls(query: Query) -> Markup {
-    html! { div class="cgit-panel" {
+    html! { div class="gilti-panel" {
         b { "diff options" }
         form method="get" { table {
             tr { td colspan="2" {} }

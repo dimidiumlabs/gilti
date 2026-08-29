@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Nikolay Govorov
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-{{- range $name, $value := dict "cgit.rootTitle" .Values.cgit.rootTitle "cgit.rootDescription" .Values.cgit.rootDescription "cgit.clonePrefix" .Values.cgit.clonePrefix }}
+{{- range $name, $value := dict "web.rootTitle" .Values.web.rootTitle "web.rootDescription" .Values.web.rootDescription "web.clonePrefix" .Values.web.clonePrefix }}
 {{- if regexMatch "[\\r\\n]" $value }}
 {{- fail (printf "%s must be a single line" $name) }}
 {{- end }}

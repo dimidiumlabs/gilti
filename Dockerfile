@@ -44,22 +44,17 @@ RUN apk add --no-cache \
 
 COPY --chown=root:root --chmod=0755 \
     .container/binary-${TARGETARCH}/gilti \
-    .container/binary-${TARGETARCH}/gilti-cgit \
     .container/binary-${TARGETARCH}/gilti-ssh \
     /usr/local/bin/
 COPY --chown=root:root \
-    .container/binary-${TARGETARCH}/cgit.css \
-    .container/binary-${TARGETARCH}/cgit.js \
-    .container/binary-${TARGETARCH}/cgit.png \
+    .container/binary-${TARGETARCH}/gilti.css \
+    .container/binary-${TARGETARCH}/gilti.js \
+    .container/binary-${TARGETARCH}/gilti.png \
     .container/binary-${TARGETARCH}/favicon.ico \
-    /usr/share/webapps/cgit/
-COPY --chown=root:root \
-    .container/binary-${TARGETARCH}/COPYING.cgit.txt \
-    .container/binary-${TARGETARCH}/COPYING.git.txt \
-    /usr/share/doc/gilti-cgit/
+    /usr/share/gilti/
 COPY --chown=root:root config/sshd_config /etc/ssh/sshd_config
 COPY --chown=root:root --chmod=0755 scripts/entrypoint.sh /usr/local/bin/gilti-entrypoint
-COPY --chown=root:root LICENSE README.md /usr/share/doc/gilti/
+COPY --chown=root:root LICENSE README.md LICENSES/ /usr/share/doc/gilti/
 
 RUN /usr/local/bin/gilti --check && \
     /usr/local/bin/gilti-ssh --check

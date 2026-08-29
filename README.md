@@ -15,7 +15,7 @@ platforms but aren't ready to host complex services like Forgejo.
   a repository by pushing to its name for the first time.
 - Repository browsing, archives, LFS downloads, and smart HTTP fetches are
   anonymous and read-only; every repository is publicly visible.
-- Password authentication, shells, forwarding, and tunnels are disabled; cgit
+- Password authentication, shells, forwarding, and tunnels are disabled; content
   filters are not supported. Optional unauthenticated HTTP writes must be
   enabled explicitly.
 - Gilti is a single-replica service backed by one POSIX persistent volume. It is
@@ -44,10 +44,9 @@ docker run --rm \
 
 The HTTP configuration is read from the environment at startup:
 
-- `GILTI_CGIT_ROOT_TITLE` (default: `Gilti`);
-- `GILTI_CGIT_ROOT_DESCRIPTION` (default: `A tiny Git server`);
-- `GILTI_CGIT_CLONE_PREFIX` (empty by default);
-- `GILTI_CGIT_CACHE` (default: `5`, maximum: `3600` seconds);
+- `GILTI_ROOT_TITLE` (default: `Gilti`);
+- `GILTI_ROOT_DESCRIPTION` (default: `A tiny Git server`);
+- `GILTI_CLONE_PREFIX` (empty by default);
 - `GILTI_HTTP_WRITE` (`0` by default; `1` enables unauthenticated HTTP pushes and LFS uploads).
 
 Gilti snapshots the authorized keys file at process startup; changing it takes
@@ -68,7 +67,7 @@ ssh:
 helm upgrade --install gilti ./charts/gilti \
   --namespace gilti --create-namespace \
   --values values.yaml \
-  --set cgit.clonePrefix='ssh://git@vcs.dimidiumlabs.io/'
+  --set web.clonePrefix='ssh://git@vcs.dimidiumlabs.io/'
 ```
 
 See [`charts/gilti/README.md`](charts/gilti/README.md) for persistence, routing,
@@ -76,10 +75,9 @@ and public-repository configuration.
 
 ## Development
 
-Initialize the Git source used to build cgit, provision tools, and run static checks:
+Provision tools and run static checks:
 
 ```console
-git submodule update --init
 mise bootstrap
 cargo fmt -- --check
 cargo test --locked

@@ -7,6 +7,7 @@ pub mod archive_signature;
 pub mod blame;
 pub mod commit;
 pub mod diff;
+pub mod history;
 pub mod object;
 pub mod overview;
 pub mod patch;
@@ -16,6 +17,7 @@ pub mod repository;
 pub mod revision;
 pub mod stats;
 pub mod tag;
+pub mod time;
 pub mod tree;
 
 #[derive(Debug)]
@@ -117,6 +119,25 @@ mod migration_tests {
         let patch = super::patch::Patch::load(&root, "example", &old, &new).unwrap();
         assert_eq!(patch.old_oid, first_oid.to_string());
         assert_eq!(patch.new_oid, second.to_string());
+        let history = super::history::History::load(
+            &root,
+            "example",
+            new,
+            super::history::Options {
+                path: Some("file.txt".to_owned()),
+                follow: true,
+                search: super::history::Search::Grep("second".to_owned()),
+                offset: 0,
+                limit: 1,
+                graph: true,
+                ignore_whitespace: false,
+                include_statistics: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(history.entries.len(), 1);
+        assert_eq!(history.entries[0].oid, second.to_string());
+        assert!(!history.graph);
         std::fs::remove_dir_all(root).unwrap();
     }
 }

@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
-div#cgit {
+div#gilti {
 	padding: 0em;
 	margin: 0em;
 	font-family: sans-serif;
@@ -12,40 +12,40 @@ div#cgit {
 	padding: 4px;
 }
 
-div#cgit a {
+div#gilti a {
 	color: blue;
 	text-decoration: none;
 }
 
-div#cgit a:hover {
+div#gilti a:hover {
 	text-decoration: underline;
 }
 
-div#cgit table {
+div#gilti table {
 	border-collapse: collapse;
 }
 
-div#cgit table#header {
+div#gilti table#header {
 	width: 100%;
 	margin-bottom: 1em;
 }
 
-div#cgit table#header td.logo {
+div#gilti table#header td.logo {
 	width: 96px;
 	vertical-align: top;
 }
 
-div#cgit table#header td.main {
+div#gilti table#header td.main {
 	font-size: 250%;
 	padding-left: 10px;
 	white-space: nowrap;
 }
 
-div#cgit table#header td.main a {
+div#gilti table#header td.main a {
 	color: #000;
 }
 
-div#cgit table#header td.form {
+div#gilti table#header td.form {
 	text-align: right;
 	vertical-align: bottom;
 	padding-right: 1em;
@@ -53,19 +53,19 @@ div#cgit table#header td.form {
 	white-space: nowrap;
 }
 
-div#cgit table#header td.form form,
-div#cgit table#header td.form input,
-div#cgit table#header td.form select {
+div#gilti table#header td.form form,
+div#gilti table#header td.form input,
+div#gilti table#header td.form select {
 	font-size: 90%;
 }
 
-div#cgit table#header td.sub {
+div#gilti table#header td.sub {
 	color: #777;
 	border-top: solid 1px #ccc;
 	padding-left: 10px;
 }
 
-div#cgit table.tabs {
+div#gilti table.tabs {
 	border-bottom: solid 3px #ccc;
 	border-collapse: collapse;
 	margin-top: 2em;
@@ -73,100 +73,100 @@ div#cgit table.tabs {
 	width: 100%;
 }
 
-div#cgit table.tabs td {
+div#gilti table.tabs td {
 	padding: 0px 1em;
 	vertical-align: bottom;
 }
 
-div#cgit table.tabs td a {
+div#gilti table.tabs td a {
 	padding: 2px 0.75em;
 	color: #777;
 	font-size: 110%;
 }
 
-div#cgit table.tabs td a.active {
+div#gilti table.tabs td a.active {
 	color: #000;
 	background-color: #ccc;
 }
 
-div#cgit table.tabs a[href^="http://"]:after, div#cgit table.tabs a[href^="https://"]:after {
+div#gilti table.tabs a[href^="http://"]:after, div#gilti table.tabs a[href^="https://"]:after {
 	content: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAQAAAAnOwc2AAAAAmJLR0QA/4ePzL8AAAAJcEhZcwAACxMAAAsTAQCanBgAAAAHdElNRQfgAhcJDQY+gm2TAAAAHWlUWHRDb21tZW50AAAAAABDcmVhdGVkIHdpdGggR0lNUGQuZQcAAABbSURBVAhbY2BABs4MU4CwhYHBh2Erww4wrGFQZHjI8B8IgUIscJWyDHcggltQhI4zGDCcRwhChPggHIggP1QoAVmQkSETrGoHsiAEsACtBYN0oDAMbgU6EBcAAL2eHUt4XUU4AAAAAElFTkSuQmCC);
 	opacity: 0.5;
 	margin: 0 0 0 5px;
 }
 
-div#cgit table.tabs td.form {
+div#gilti table.tabs td.form {
 	text-align: right;
 }
 
-div#cgit table.tabs td.form form {
+div#gilti table.tabs td.form form {
 	padding-bottom: 2px;
 	font-size: 90%;
 	white-space: nowrap;
 }
 
-div#cgit table.tabs td.form input,
-div#cgit table.tabs td.form select {
+div#gilti table.tabs td.form input,
+div#gilti table.tabs td.form select {
 	font-size: 90%;
 }
 
-div#cgit div.path {
+div#gilti div.path {
 	margin: 0px;
 	padding: 5px 2em 2px 2em;
 	color: #000;
 	background-color: #eee;
 }
 
-div#cgit div.content {
+div#gilti div.content {
 	margin: 0px;
 	padding: 2em;
 	border-bottom: solid 3px #ccc;
 }
 
 
-div#cgit table.list {
+div#gilti table.list {
 	width: 100%;
 	border: none;
 	border-collapse: collapse;
 }
 
-div#cgit table.list tr {
+div#gilti table.list tr {
 	background: white;
 }
 
-div#cgit table.list tr.logheader {
+div#gilti table.list tr.logheader {
 	background: #eee;
 }
 
-div#cgit table.list tr:nth-child(even) {
+div#gilti table.list tr:nth-child(even) {
 	background: #f7f7f7;
 }
 
-div#cgit table.list tr:nth-child(odd) {
+div#gilti table.list tr:nth-child(odd) {
 	background: white;
 }
 
-div#cgit table.list tr:hover {
+div#gilti table.list tr:hover {
 	background: #eee;
 }
 
-div#cgit table.list tr.nohover {
+div#gilti table.list tr.nohover {
 	background: white;
 }
 
-div#cgit table.list tr.nohover:hover {
+div#gilti table.list tr.nohover:hover {
 	background: white;
 }
 
-div#cgit table.list tr.nohover-highlight:hover:nth-child(even) {
+div#gilti table.list tr.nohover-highlight:hover:nth-child(even) {
 	background: #f7f7f7;
 }
 
-div#cgit table.list tr.nohover-highlight:hover:nth-child(odd) {
+div#gilti table.list tr.nohover-highlight:hover:nth-child(odd) {
 	background: white;
 }
 
-div#cgit table.list th {
+div#gilti table.list th {
 	font-weight: bold;
 	/* color: #888;
 	border-top: dashed 1px #888;
@@ -176,98 +176,98 @@ div#cgit table.list th {
 	vertical-align: baseline;
 }
 
-div#cgit table.list td {
+div#gilti table.list td {
 	border: none;
 	padding: 0.1em 0.5em 0.1em 0.5em;
 }
 
-div#cgit table.list td.commitgraph {
+div#gilti table.list td.commitgraph {
 	font-family: monospace;
 	white-space: pre;
 }
 
-div#cgit table.list td.commitgraph .column1 {
+div#gilti table.list td.commitgraph .column1 {
 	color: #a00;
 }
 
-div#cgit table.list td.commitgraph .column2 {
+div#gilti table.list td.commitgraph .column2 {
 	color: #0a0;
 }
 
-div#cgit table.list td.commitgraph .column3 {
+div#gilti table.list td.commitgraph .column3 {
 	color: #aa0;
 }
 
-div#cgit table.list td.commitgraph .column4 {
+div#gilti table.list td.commitgraph .column4 {
 	color: #00a;
 }
 
-div#cgit table.list td.commitgraph .column5 {
+div#gilti table.list td.commitgraph .column5 {
 	color: #a0a;
 }
 
-div#cgit table.list td.commitgraph .column6 {
+div#gilti table.list td.commitgraph .column6 {
 	color: #0aa;
 }
 
-div#cgit table.list td.logsubject {
+div#gilti table.list td.logsubject {
 	font-family: monospace;
 	font-weight: bold;
 }
 
-div#cgit table.list td.logmsg {
+div#gilti table.list td.logmsg {
 	font-family: monospace;
 	white-space: pre;
 	padding: 0 0.5em;
 }
 
-div#cgit table.list td a {
+div#gilti table.list td a {
 	color: black;
 }
 
-div#cgit table.list td a.ls-dir {
+div#gilti table.list td a.ls-dir {
 	font-weight: bold;
 	color: #00f;
 }
 
-div#cgit table.list td a:hover {
+div#gilti table.list td a:hover {
 	color: #00f;
 }
 
-div#cgit img {
+div#gilti img {
 	border: none;
 }
 
-div#cgit input#switch-btn {
+div#gilti input#switch-btn {
 	margin: 2px 0px 0px 0px;
 }
 
-div#cgit td#sidebar input.txt {
+div#gilti td#sidebar input.txt {
 	width: 100%;
 	margin: 2px 0px 0px 0px;
 }
 
-div#cgit table#grid {
+div#gilti table#grid {
 	margin: 0px;
 }
 
-div#cgit td#content {
+div#gilti td#content {
 	vertical-align: top;
 	padding: 1em 2em 1em 1em;
 	border: none;
 }
 
-div#cgit div#summary {
+div#gilti div#summary {
 	vertical-align: top;
 	margin-bottom: 1em;
 }
 
-div#cgit div#summary pre {
+div#gilti div#summary pre {
 	margin: 0;
 	white-space: pre-wrap;
 }
 
-div#cgit table#downloads {
+div#gilti table#downloads {
 	float: right;
 	border-collapse: collapse;
 	border: solid 1px #777;
@@ -275,197 +275,197 @@ div#cgit table#downloads {
 	margin-bottom: 0.5em;
 }
 
-div#cgit table#downloads th {
+div#gilti table#downloads th {
 	background-color: #ccc;
 }
 
-div#cgit div#blob {
+div#gilti div#blob {
 	border: solid 1px black;
 }
 
-div#cgit div.error {
+div#gilti div.error {
 	color: red;
 	font-weight: bold;
 	margin: 1em 2em;
 }
 
-div#cgit a.ls-blob, div#cgit a.ls-dir, div#cgit .ls-mod {
+div#gilti a.ls-blob, div#gilti a.ls-dir, div#gilti .ls-mod {
 	font-family: monospace;
 }
 
-div#cgit td.ls-size {
+div#gilti td.ls-size {
 	text-align: right;
 	font-family: monospace;
 	width: 10em;
 }
 
-div#cgit td.ls-mode {
+div#gilti td.ls-mode {
 	font-family: monospace;
 	width: 10em;
 }
 
-div#cgit table.blob {
+div#gilti table.blob {
 	margin-top: 0.5em;
 	border-top: solid 1px black;
 }
 
-div#cgit table.blob td.hashes,
-div#cgit table.blob td.lines {
+div#gilti table.blob td.hashes,
+div#gilti table.blob td.lines {
 	margin: 0; padding: 0 0 0 0.5em;
 	vertical-align: top;
 	color: black;
 }
 
-div#cgit table.blob td.linenumbers {
+div#gilti table.blob td.linenumbers {
 	margin: 0; padding: 0 0.5em 0 0.5em;
 	vertical-align: top;
 	text-align: right;
 	border-right: 1px solid gray;
 }
 
-div#cgit table.blob pre {
+div#gilti table.blob pre {
 	padding: 0; margin: 0;
 }
 
-div#cgit table.blob td.linenumbers a,
-div#cgit table.ssdiff td.lineno a {
+div#gilti table.blob td.linenumbers a,
+div#gilti table.ssdiff td.lineno a {
 	color: gray;
 	text-align: right;
 	text-decoration: none;
 }
 
-div#cgit table.blob td.linenumbers a:hover,
-div#cgit table.ssdiff td.lineno a:hover {
+div#gilti table.blob td.linenumbers a:hover,
+div#gilti table.ssdiff td.lineno a:hover {
 	color: black;
 }
 
-div#cgit table.blob td.linenumbers a:target:before {
+div#gilti table.blob td.linenumbers a:target:before {
 	color: red;
 	content: "\2BA9";
 }
 
-div#cgit table.blame td.hashes,
-div#cgit table.blame td.lines,
-div#cgit table.blame td.linenumbers {
+div#gilti table.blame td.hashes,
+div#gilti table.blame td.lines,
+div#gilti table.blame td.linenumbers {
 	padding: 0;
 }
 
-div#cgit table.blame td.hashes div.alt,
-div#cgit table.blame td.lines div.alt {
+div#gilti table.blame td.hashes div.alt,
+div#gilti table.blame td.lines div.alt {
 	padding: 0 0.5em 0 0.5em;
 }
 
-div#cgit table.blame td.linenumbers div.alt {
+div#gilti table.blame td.linenumbers div.alt {
 	padding: 0 0.5em 0 0;
 }
 
-div#cgit table.blame div.alt:nth-child(even) {
+div#gilti table.blame div.alt:nth-child(even) {
 	background: #eee;
 }
 
-div#cgit table.blame div.alt:nth-child(odd) {
+div#gilti table.blame div.alt:nth-child(odd) {
 	background: white;
 }
 
-div#cgit table.blame td.lines > div {
+div#gilti table.blame td.lines > div {
 	position: relative;
 }
 
-div#cgit table.blame td.lines > div > pre {
+div#gilti table.blame td.lines > div > pre {
 	padding: 0 0 0 0.5em;
 	position: absolute;
 	top: 0;
 }
 
-div#cgit table.blame .oid {
+div#gilti table.blame .oid {
 	font-size: 100%;
 }
 
-div#cgit table.bin-blob {
+div#gilti table.bin-blob {
 	margin-top: 0.5em;
 	border: solid 1px black;
 }
 
-div#cgit table.bin-blob th {
+div#gilti table.bin-blob th {
 	font-family: monospace;
 	white-space: pre;
 	border: solid 1px #777;
 	padding: 0.5em 1em;
 }
 
-div#cgit table.bin-blob td {
+div#gilti table.bin-blob td {
 	font-family: monospace;
 	white-space: pre;
 	border-left: solid 1px #777;
 	padding: 0em 1em;
 }
 
-div#cgit table.nowrap td {
+div#gilti table.nowrap td {
 	white-space: nowrap;
 }
 
-div#cgit table.commit-info {
+div#gilti table.commit-info {
 	border-collapse: collapse;
 	margin-top: 1.5em;
 }
 
-div#cgit div.cgit-panel {
+div#gilti div.gilti-panel {
 	float: right;
 	margin-top: 1.5em;
 }
 
-div#cgit div.cgit-panel table {
+div#gilti div.gilti-panel table {
 	border-collapse: collapse;
 	border: solid 1px #aaa;
 	background-color: #eee;
 }
 
-div#cgit div.cgit-panel th {
+div#gilti div.gilti-panel th {
 	text-align: center;
 }
 
-div#cgit div.cgit-panel td {
+div#gilti div.gilti-panel td {
 	padding: 0.25em 0.5em;
 }
 
-div#cgit div.cgit-panel td.label {
+div#gilti div.gilti-panel td.label {
 	padding-right: 0.5em;
 }
 
-div#cgit div.cgit-panel td.ctrl {
+div#gilti div.gilti-panel td.ctrl {
 	padding-left: 0.5em;
 }
 
-div#cgit table.commit-info th {
+div#gilti table.commit-info th {
 	text-align: left;
 	font-weight: normal;
 	padding: 0.1em 1em 0.1em 0.1em;
 	vertical-align: top;
 }
 
-div#cgit table.commit-info td {
+div#gilti table.commit-info td {
 	font-weight: normal;
 	padding: 0.1em 1em 0.1em 0.1em;
 }
 
-div#cgit div.commit-subject {
+div#gilti div.commit-subject {
 	font-weight: bold;
 	font-size: 125%;
 	margin: 1.5em 0em 0.5em 0em;
 	padding: 0em;
 }
 
-div#cgit div.commit-msg {
+div#gilti div.commit-msg {
 	white-space: pre;
 	font-family: monospace;
 }
 
-div#cgit div.notes-header {
+div#gilti div.notes-header {
 	font-weight: bold;
 	padding-top: 1.5em;
 }
 
-div#cgit div.notes {
+div#gilti div.notes {
 	white-space: pre;
 	font-family: monospace;
 	border: solid 1px #ee9;
@@ -474,22 +474,22 @@ div#cgit div.notes {
 	float: left;
 }
 
-div#cgit div.notes-footer {
+div#gilti div.notes-footer {
 	clear: left;
 }
 
-div#cgit div.diffstat-header {
+div#gilti div.diffstat-header {
 	font-weight: bold;
 	padding-top: 1.5em;
 }
 
-div#cgit table.diffstat {
+div#gilti table.diffstat {
 	border-collapse: collapse;
 	border: solid 1px #aaa;
 	background-color: #eee;
 }
 
-div#cgit table.diffstat th {
+div#gilti table.diffstat th {
 	font-weight: normal;
 	text-align: left;
 	text-decoration: underline;
@@ -497,197 +497,197 @@ div#cgit table.diffstat th {
 	font-size: 100%;
 }
 
-div#cgit table.diffstat td {
+div#gilti table.diffstat td {
 	padding: 0.2em 0.2em 0.1em 0.1em;
 	font-size: 100%;
 	border: none;
 }
 
-div#cgit table.diffstat td.mode {
+div#gilti table.diffstat td.mode {
 	white-space: nowrap;
 }
 
-div#cgit table.diffstat td span.modechange {
+div#gilti table.diffstat td span.modechange {
 	padding-left: 1em;
 	color: red;
 }
 
-div#cgit table.diffstat td.add a {
+div#gilti table.diffstat td.add a {
 	color: green;
 }
 
-div#cgit table.diffstat td.del a {
+div#gilti table.diffstat td.del a {
 	color: red;
 }
 
-div#cgit table.diffstat td.upd a {
+div#gilti table.diffstat td.upd a {
 	color: blue;
 }
 
-div#cgit table.diffstat td.graph {
+div#gilti table.diffstat td.graph {
 	width: 500px;
 	vertical-align: middle;
 }
 
-div#cgit table.diffstat td.graph table {
+div#gilti table.diffstat td.graph table {
 	border: none;
 }
 
-div#cgit table.diffstat td.graph td {
+div#gilti table.diffstat td.graph td {
 	padding: 0px;
 	border: 0px;
 	height: 7pt;
 }
 
-div#cgit table.diffstat td.graph td.add {
+div#gilti table.diffstat td.graph td.add {
 	background-color: #5c5;
 }
 
-div#cgit table.diffstat td.graph td.rem {
+div#gilti table.diffstat td.graph td.rem {
 	background-color: #c55;
 }
 
-div#cgit div.diffstat-summary {
+div#gilti div.diffstat-summary {
 	color: #888;
 	padding-top: 0.5em;
 }
 
-div#cgit table.diff {
+div#gilti table.diff {
 	width: 100%;
 }
 
-div#cgit table.diff td {
+div#gilti table.diff td {
 	font-family: monospace;
 	white-space: pre;
 }
 
-div#cgit table.diff td div.head {
+div#gilti table.diff td div.head {
 	font-weight: bold;
 	margin-top: 1em;
 	color: black;
 }
 
-div#cgit table.diff td div.hunk {
+div#gilti table.diff td div.hunk {
 	color: #009;
 }
 
-div#cgit table.diff td div.add {
+div#gilti table.diff td div.add {
 	color: green;
 }
 
-div#cgit table.diff td div.del {
+div#gilti table.diff td div.del {
 	color: red;
 }
 
-div#cgit .oid {
+div#gilti .oid {
 	font-family: monospace;
 	font-size: 90%;
 }
 
-div#cgit .left {
+div#gilti .left {
 	text-align: left;
 }
 
-div#cgit .right {
+div#gilti .right {
 	text-align: right;
 }
 
-div#cgit table.list td.reposection {
+div#gilti table.list td.reposection {
 	font-style: italic;
 	color: #888;
 }
 
-div#cgit a.button {
+div#gilti a.button {
 	font-size: 80%;
 	padding: 0em 0.5em;
 }
 
-div#cgit a.primary {
+div#gilti a.primary {
 	font-size: 100%;
 }
 
-div#cgit a.secondary {
+div#gilti a.secondary {
 	font-size: 90%;
 }
 
-div#cgit td.toplevel-repo {
+div#gilti td.toplevel-repo {
 
 }
 
-div#cgit table.list td.sublevel-repo {
+div#gilti table.list td.sublevel-repo {
 	padding-left: 1.5em;
 }
 
-div#cgit ul.pager {
+div#gilti ul.pager {
 	list-style-type: none;
 	text-align: center;
 	margin: 1em 0em 0em 0em;
 	padding: 0;
 }
 
-div#cgit ul.pager li {
+div#gilti ul.pager li {
 	display: inline-block;
 	margin: 0.25em 0.5em;
 }
 
-div#cgit ul.pager a {
+div#gilti ul.pager a {
 	color: #777;
 }
 
-div#cgit ul.pager .current {
+div#gilti ul.pager .current {
 	font-weight: bold;
 }
 
-div#cgit span.age-mins {
+div#gilti span.age-mins {
 	font-weight: bold;
 	color: #080;
 }
 
-div#cgit span.age-hours {
+div#gilti span.age-hours {
 	color: #080;
 }
 
-div#cgit span.age-days {
+div#gilti span.age-days {
 	color: #040;
 }
 
-div#cgit span.age-weeks {
+div#gilti span.age-weeks {
 	color: #444;
 }
 
-div#cgit span.age-months {
+div#gilti span.age-months {
 	color: #888;
 }
 
-div#cgit span.age-years {
+div#gilti span.age-years {
 	color: #bbb;
 }
 
-div#cgit span.insertions {
+div#gilti span.insertions {
 	color: #080;
 }
 
-div#cgit span.deletions {
+div#gilti span.deletions {
 	color: #800;
 }
 
-div#cgit div.footer {
+div#gilti div.footer {
 	margin-top: 0.5em;
 	text-align: center;
 	font-size: 80%;
 	color: #ccc;
 }
 
-div#cgit div.footer a {
+div#gilti div.footer a {
 	color: #ccc;
 	text-decoration: none;
 }
 
-div#cgit div.footer a:hover {
+div#gilti div.footer a:hover {
 	text-decoration: underline;
 }
 
-div#cgit a.branch-deco {
+div#gilti a.branch-deco {
 	color: #000;
 	margin: 0px 0.5em;
 	padding: 0px 0.25em;
@@ -696,7 +696,7 @@ div#cgit a.branch-deco {
 	border-radius: 2px;
 }
 
-div#cgit a.tag-deco {
+div#gilti a.tag-deco {
 	color: #000;
 	margin: 0px 0.5em;
 	padding: 0px 0.25em;
@@ -705,7 +705,7 @@ div#cgit a.tag-deco {
 	border-radius: 2px;
 }
 
-div#cgit a.tag-annotated-deco {
+div#gilti a.tag-annotated-deco {
 	color: #000;
 	margin: 0px 0.5em;
 	padding: 0px 0.25em;
@@ -714,7 +714,7 @@ div#cgit a.tag-annotated-deco {
 	border-radius: 2px;
 }
 
-div#cgit a.remote-deco {
+div#gilti a.remote-deco {
 	color: #000;
 	margin: 0px 0.5em;
 	padding: 0px 0.25em;
@@ -723,7 +723,7 @@ div#cgit a.remote-deco {
 	border-radius: 2px;
 }
 
-div#cgit a.deco {
+div#gilti a.deco {
 	color: #000;
 	margin: 0px 0.5em;
 	padding: 0px 0.25em;
@@ -732,97 +732,97 @@ div#cgit a.deco {
 	border-radius: 2px;
 }
 
-div#cgit div.commit-subject a.branch-deco,
-div#cgit div.commit-subject a.tag-deco,
-div#cgit div.commit-subject a.tag-annotated-deco,
-div#cgit div.commit-subject a.remote-deco,
-div#cgit div.commit-subject a.deco {
+div#gilti div.commit-subject a.branch-deco,
+div#gilti div.commit-subject a.tag-deco,
+div#gilti div.commit-subject a.tag-annotated-deco,
+div#gilti div.commit-subject a.remote-deco,
+div#gilti div.commit-subject a.deco {
 	margin-left: 1em;
 	font-size: 75%;
 }
 
-div#cgit table.stats {
+div#gilti table.stats {
 	border: solid 1px black;
 	border-collapse: collapse;
 }
 
-div#cgit table.stats th {
+div#gilti table.stats th {
 	text-align: left;
 	padding: 1px 0.5em;
 	background-color: #eee;
 	border: solid 1px black;
 }
 
-div#cgit table.stats td {
+div#gilti table.stats td {
 	text-align: right;
 	padding: 1px 0.5em;
 	border: solid 1px black;
 }
 
-div#cgit table.stats td.total {
+div#gilti table.stats td.total {
 	font-weight: bold;
 	text-align: left;
 }
 
-div#cgit table.stats td.sum {
+div#gilti table.stats td.sum {
 	color: #c00;
 	font-weight: bold;
 /*	background-color: #eee; */
 }
 
-div#cgit table.stats td.left {
+div#gilti table.stats td.left {
 	text-align: left;
 }
 
-div#cgit table.vgraph {
+div#gilti table.vgraph {
 	border-collapse: separate;
 	border: solid 1px black;
 	height: 200px;
 }
 
-div#cgit table.vgraph th {
+div#gilti table.vgraph th {
 	background-color: #eee;
 	font-weight: bold;
 	border: solid 1px white;
 	padding: 1px 0.5em;
 }
 
-div#cgit table.vgraph td {
+div#gilti table.vgraph td {
 	vertical-align: bottom;
 	padding: 0px 10px;
 }
 
-div#cgit table.vgraph div.bar {
+div#gilti table.vgraph div.bar {
 	background-color: #eee;
 }
 
-div#cgit table.hgraph {
+div#gilti table.hgraph {
 	border: solid 1px black;
 	width: 800px;
 }
 
-div#cgit table.hgraph th {
+div#gilti table.hgraph th {
 	background-color: #eee;
 	font-weight: bold;
 	border: solid 1px black;
 	padding: 1px 0.5em;
 }
 
-div#cgit table.hgraph td {
+div#gilti table.hgraph td {
 	vertical-align: middle;
 	padding: 2px 2px;
 }
 
-div#cgit table.hgraph div.bar {
+div#gilti table.hgraph div.bar {
 	background-color: #eee;
 	height: 1em;
 }
 
-div#cgit table.ssdiff {
+div#gilti table.ssdiff {
 	width: 100%;
 }
 
-div#cgit table.ssdiff td {
+div#gilti table.ssdiff td {
 	font-size: 75%;
 	font-family: monospace;
 	white-space: pre;
@@ -831,53 +831,53 @@ div#cgit table.ssdiff td {
 	border-right: solid 1px #aaa;
 }
 
-div#cgit table.ssdiff td.add {
+div#gilti table.ssdiff td.add {
 	color: black;
 	background: #cfc;
 	min-width: 50%;
 }
 
-div#cgit table.ssdiff td.add_dark {
+div#gilti table.ssdiff td.add_dark {
 	color: black;
 	background: #aca;
 	min-width: 50%;
 }
 
-div#cgit table.ssdiff span.add {
+div#gilti table.ssdiff span.add {
 	background: #cfc;
 	font-weight: bold;
 }
 
-div#cgit table.ssdiff td.del {
+div#gilti table.ssdiff td.del {
 	color: black;
 	background: #fcc;
 	min-width: 50%;
 }
 
-div#cgit table.ssdiff td.del_dark {
+div#gilti table.ssdiff td.del_dark {
 	color: black;
 	background: #caa;
 	min-width: 50%;
 }
 
-div#cgit table.ssdiff span.del {
+div#gilti table.ssdiff span.del {
 	background: #fcc;
 	font-weight: bold;
 }
 
-div#cgit table.ssdiff td.changed {
+div#gilti table.ssdiff td.changed {
 	color: black;
 	background: #ffc;
 	min-width: 50%;
 }
 
-div#cgit table.ssdiff td.changed_dark {
+div#gilti table.ssdiff td.changed_dark {
 	color: black;
 	background: #cca;
 	min-width: 50%;
 }
 
-div#cgit table.ssdiff td.lineno {
+div#gilti table.ssdiff td.lineno {
 	color: black;
 	background: #eee;
 	text-align: right;
@@ -885,34 +885,34 @@ div#cgit table.ssdiff td.lineno {
 	min-width: 3em;
 }
 
-div#cgit table.ssdiff td.hunk {
+div#gilti table.ssdiff td.hunk {
 	color: black;
 	background: #ccf;
 	border-top: solid 1px #aaa;
 	border-bottom: solid 1px #aaa;
 }
 
-div#cgit table.ssdiff td.head {
+div#gilti table.ssdiff td.head {
 	border-top: solid 1px #aaa;
 	border-bottom: solid 1px #aaa;
 }
 
-div#cgit table.ssdiff td.head div.head {
+div#gilti table.ssdiff td.head div.head {
 	font-weight: bold;
 	color: black;
 }
 
-div#cgit table.ssdiff td.foot {
+div#gilti table.ssdiff td.foot {
 	border-top: solid 1px #aaa;
 	border-left: none;
 	border-right: none;
 	border-bottom: none;
 }
 
-div#cgit table.ssdiff td.space {
+div#gilti table.ssdiff td.space {
 	border: none;
 }
 
-div#cgit table.ssdiff td.space div {
+div#gilti table.ssdiff td.space div {
 	min-height: 3em;
 }
