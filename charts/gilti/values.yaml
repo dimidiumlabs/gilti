@@ -17,12 +17,10 @@ ssh:
   # Every listed key has read/write access to every repository.
   authorizedKeys: []
 
-cgit:
+web:
   rootTitle: Gilti
   rootDescription: A tiny Git server
   clonePrefix: ""
-  # In-memory CGI response lifetime in seconds; zero disables the cache.
-  cache: 5
 
 http:
   # Allow unauthenticated Git receive-pack and LFS uploads.

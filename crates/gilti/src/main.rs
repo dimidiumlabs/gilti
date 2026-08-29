@@ -8,12 +8,8 @@ pub mod router;
 mod views;
 
 const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:8080";
-const DEFAULT_CACHE_SECONDS: &str = "5";
 const DEFAULT_ROOT_TITLE: &str = "Gilti";
 const DEFAULT_ROOT_DESCRIPTION: &str = "A tiny Git server";
-const MAX_CACHE_SECONDS: u64 = 3600;
-
-const CGIT: &str = "/usr/local/bin/gilti-cgit";
 const GIT_HTTP_BACKENDS: &[&str] = &[
     "/usr/libexec/git-core/git-http-backend",
     "/usr/lib/git-core/git-http-backend",
@@ -28,49 +24,13 @@ const ARCHIVE_COMPRESSORS: &[&str] = &[
     "/usr/bin/zstd",
 ];
 
-const CGIT_CSS: &str = "/usr/share/webapps/cgit/cgit.css";
-const CGIT_JS: &str = "/usr/share/webapps/cgit/cgit.js";
-const CGIT_LOGO: &str = "/usr/share/webapps/cgit/cgit.png";
-const CGIT_FAVICON: &str = "/usr/share/webapps/cgit/favicon.ico";
-
-const CGIT_ENVIRONMENT: &[(&str, &str)] = &[
-    ("CGIT_CLONE_URL", ""),
-    ("CGIT_COMMIT_SORT", "0"),
-    ("CGIT_CSS", "/-/assets/cgit.css"),
-    ("CGIT_DIFFTYPE", "0"),
-    ("CGIT_EMBEDDED", "0"),
-    ("CGIT_ENABLE_COMMIT_GRAPH", "1"),
-    ("CGIT_ENABLE_FOLLOW_LINKS", "0"),
-    ("CGIT_ENABLE_LOG_FILECOUNT", "1"),
-    ("CGIT_ENABLE_LOG_LINECOUNT", "1"),
-    ("CGIT_ENABLE_REMOTE_BRANCHES", "0"),
-    ("CGIT_FAVICON", "/-/assets/favicon.ico"),
-    ("CGIT_FOOTER", ""),
-    ("CGIT_HEADER", ""),
-    ("CGIT_HEAD_INCLUDE", ""),
-    ("CGIT_JS", "/-/assets/cgit.js"),
-    ("CGIT_LOCAL_TIME", "0"),
-    ("CGIT_LOGO", "/-/assets/cgit.png"),
-    ("CGIT_LOGO_LINK", ""),
-    ("CGIT_MAX_ATOM_ITEMS", "10"),
-    ("CGIT_MAX_COMMIT_COUNT", "50"),
-    ("CGIT_MAX_MESSAGE_LENGTH", "80"),
-    ("CGIT_NOHEADER", "0"),
-    ("CGIT_NOPLAINEMAIL", "0"),
-    ("CGIT_README_0", ":README.md"),
-    ("CGIT_README_1", ":README"),
-    ("CGIT_REPO_DEFAULT_DESC", "[no description]"),
-    ("CGIT_RENAMELIMIT", "-1"),
-    ("CGIT_ROBOTS", "index, nofollow"),
-    ("CGIT_SECTION", ""),
-    ("CGIT_VIRTUAL_ROOT", "/"),
-    ("GIT_ATTR_NOSYSTEM", "1"),
-    ("GIT_CONFIG_NOSYSTEM", "1"),
-];
+const ASSET_CSS: &str = "/usr/share/gilti/gilti.css";
+const ASSET_JS: &str = "/usr/share/gilti/gilti.js";
+const ASSET_LOGO: &str = "/usr/share/gilti/gilti.png";
+const ASSET_FAVICON: &str = "/usr/share/gilti/favicon.ico";
 
 #[derive(Clone)]
 struct RepositoryService {
-    cgit: cgi::Cgi,
     git: cgi::Cgi,
     views: views::shared::Context,
     write_enabled: bool,
@@ -78,7 +38,6 @@ struct RepositoryService {
 
 struct Config {
     listen_addr: std::net::SocketAddr,
-    cache: std::time::Duration,
     root_title: String,
     root_description: String,
     clone_prefix: String,
@@ -90,13 +49,11 @@ impl Config {
         let listen_addr = environment("GILTI_HTTP_ADDR", DEFAULT_LISTEN_ADDR)?
             .parse()
             .map_err(|_| invalid_config("GILTI_HTTP_ADDR must be a socket address"))?;
-        let cache = parse_cache(&environment("GILTI_CGIT_CACHE", DEFAULT_CACHE_SECONDS)?)?;
         Ok(Self {
             listen_addr,
-            cache,
-            root_title: environment("GILTI_CGIT_ROOT_TITLE", DEFAULT_ROOT_TITLE)?,
-            root_description: environment("GILTI_CGIT_ROOT_DESCRIPTION", DEFAULT_ROOT_DESCRIPTION)?,
-            clone_prefix: environment("GILTI_CGIT_CLONE_PREFIX", "")?,
+            root_title: environment("GILTI_ROOT_TITLE", DEFAULT_ROOT_TITLE)?,
+            root_description: environment("GILTI_ROOT_DESCRIPTION", DEFAULT_ROOT_DESCRIPTION)?,
+            clone_prefix: environment("GILTI_CLONE_PREFIX", "")?,
             http_write: parse_bool("GILTI_HTTP_WRITE", &environment("GILTI_HTTP_WRITE", "0")?)?,
         })
     }
@@ -120,18 +77,6 @@ fn parse_bool(name: &str, value: &str) -> std::io::Result<bool> {
     }
 }
 
-fn parse_cache(value: &str) -> std::io::Result<std::time::Duration> {
-    let seconds = value
-        .parse::<u64>()
-        .map_err(|_| invalid_config("GILTI_CGIT_CACHE must be an integer number of seconds"))?;
-    if seconds > MAX_CACHE_SECONDS {
-        return Err(invalid_config(format!(
-            "GILTI_CGIT_CACHE must not exceed {MAX_CACHE_SECONDS} seconds"
-        )));
-    }
-    Ok(std::time::Duration::from_secs(seconds))
-}
-
 fn invalid_config(message: impl Into<String>) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::InvalidData, message.into())
 }
@@ -153,15 +98,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         root_description: std::sync::Arc::from(config.root_description.clone()),
         clone_prefix: std::sync::Arc::from(config.clone_prefix.clone()),
     };
-    let mut cgit = cgi::Cgi::new(CGIT, GIT_HOME, config.listen_addr)
-        .cache(config.cache)
-        .env("CGIT_ROOT_TITLE", config.root_title)
-        .env("CGIT_ROOT_DESC", config.root_description)
-        .env("CGIT_CLONE_PREFIX", config.clone_prefix)
-        .env("PATH", "/usr/bin:/bin");
-    for (name, value) in CGIT_ENVIRONMENT {
-        cgit = cgit.env(*name, *value);
-    }
     let git = cgi::Cgi::new(git_http_backend, GIT_HOME, config.listen_addr)
         .env("GIT_PROJECT_ROOT", REPOSITORIES)
         .env("GIT_HTTP_EXPORT_ALL", "1")
@@ -172,7 +108,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .env("GIT_CONFIG_NOSYSTEM", "1")
         .env("PATH", "/usr/bin:/bin");
     let repositories = RepositoryService {
-        cgit,
         git,
         views,
         write_enabled: config.http_write,
@@ -201,20 +136,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }),
         )
         .route(
-            "/-/assets/cgit.css",
-            axum::routing::get(async || static_file(CGIT_CSS, "text/css")),
+            "/-/assets/gilti.css",
+            axum::routing::get(async || static_file(ASSET_CSS, "text/css")),
         )
         .route(
-            "/-/assets/cgit.js",
-            axum::routing::get(async || static_file(CGIT_JS, "text/javascript")),
+            "/-/assets/gilti.js",
+            axum::routing::get(async || static_file(ASSET_JS, "text/javascript")),
         )
         .route(
-            "/-/assets/cgit.png",
-            axum::routing::get(async || static_file(CGIT_LOGO, "image/png")),
+            "/-/assets/gilti.png",
+            axum::routing::get(async || static_file(ASSET_LOGO, "image/png")),
         )
         .route(
             "/-/assets/favicon.ico",
-            axum::routing::get(async || static_file(CGIT_FAVICON, "image/x-icon")),
+            axum::routing::get(async || static_file(ASSET_FAVICON, "image/x-icon")),
         )
         .fallback_service(repositories);
 
@@ -242,8 +177,7 @@ fn git_http_backend() -> std::io::Result<std::path::PathBuf> {
 }
 
 fn check_files(git_http_backend: &std::path::Path) -> std::io::Result<()> {
-    for path in std::iter::once(std::path::Path::new(CGIT))
-        .chain(std::iter::once(git_http_backend))
+    for path in std::iter::once(git_http_backend)
         .chain(std::iter::once(std::path::Path::new(GIT)))
         .chain(ARCHIVE_COMPRESSORS.iter().map(std::path::Path::new))
     {
@@ -257,7 +191,7 @@ fn check_files(git_http_backend: &std::path::Path) -> std::io::Result<()> {
             )));
         }
     }
-    for path in [CGIT_CSS, CGIT_JS, CGIT_LOGO, CGIT_FAVICON] {
+    for path in [ASSET_CSS, ASSET_JS, ASSET_LOGO, ASSET_FAVICON] {
         if !std::fs::metadata(path)?.is_file() {
             return Err(std::io::Error::other(format!(
                 "{path} is not a regular file"
@@ -321,7 +255,7 @@ impl RepositoryService {
         {
             request.extensions_mut().insert(cgi::RemoteAddr(remote));
         }
-        let migrated = matches!(
+        let browser_view = matches!(
             &route,
             router::Route::Repositories
                 | router::Route::Overview(_)
@@ -336,8 +270,10 @@ impl RepositoryService {
                 | router::Route::ArchiveSignature(_)
                 | router::Route::Diff(_)
                 | router::Route::Patch(_)
+                | router::Route::Log(_)
+                | router::Route::AtomFeed(_)
         );
-        let query = if migrated {
+        let query = if browser_view {
             let query = match request_query(request.uri().query()) {
                 Ok(query) => query,
                 Err(()) => {
@@ -451,6 +387,23 @@ impl RepositoryService {
             router::Route::Patch(route) => {
                 views::patch::serve(&self.views, route, request.method().clone()).await
             }
+            router::Route::Log(route) => {
+                let query =
+                    match views::log::Query::from_request(query.as_ref().expect("query parsed")) {
+                        Ok(query) => query,
+                        Err(()) => return views::bad_request("bad query\n"),
+                    };
+                views::log::serve(&self.views, route, query, request.method().clone()).await
+            }
+            router::Route::AtomFeed(route) => {
+                views::atom::serve(
+                    &self.views,
+                    route,
+                    request.headers().get(axum::http::header::HOST),
+                    request.method().clone(),
+                )
+                .await
+            }
             router::Route::GitLfs(route) => {
                 lfs::serve(
                     std::path::Path::new(REPOSITORIES),
@@ -486,7 +439,6 @@ impl RepositoryService {
                 )
                 .await
             }
-            route => self.cgit(request, route).await,
         }
     }
 
@@ -510,71 +462,9 @@ impl RepositoryService {
         request
             .extensions_mut()
             .insert(cgi::Environment(environment));
-        request.extensions_mut().insert(cgi::NoCache);
         match tower::ServiceExt::oneshot(self.git.clone(), request).await {
             Ok(response) => response,
             Err(error) => internal_error("git-http-backend", error),
-        }
-    }
-
-    async fn cgit(
-        &self,
-        mut request: axum::extract::Request,
-        route: router::Route,
-    ) -> axum::response::Response {
-        if request.method() != axum::http::Method::GET
-            && request.method() != axum::http::Method::HEAD
-        {
-            return plain_response(
-                axum::http::StatusCode::METHOD_NOT_ALLOWED,
-                "method not allowed\n",
-            );
-        }
-        let query = match request_query(request.uri().query()) {
-            Ok(query) => query,
-            Err(()) => return plain_response(axum::http::StatusCode::BAD_REQUEST, "bad query\n"),
-        };
-        if !valid_format(&route, query.format.as_deref()) {
-            return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n");
-        }
-        let mut environment = match cgit_environment(route, query, request.uri().path()) {
-            Ok(environment) => environment,
-            Err(()) => return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n"),
-        };
-        let repository = environment
-            .iter()
-            .find(|(name, _)| name == std::ffi::OsStr::new("GILTI_REPOSITORY"))
-            .and_then(|(_, value)| value.to_str());
-        let repository_path = match repository {
-            Some(repository) => crate::models::repository::path(
-                std::path::Path::new(self.views.repositories),
-                repository,
-            ),
-            None => return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n"),
-        };
-        let repository_path = match repository_path {
-            Ok(path) => path,
-            Err(crate::models::Error::NotFound) => {
-                return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n");
-            }
-            Err(crate::models::Error::Internal(error)) => {
-                eprintln!("gilti: repository lookup failed: {error}");
-                return plain_response(
-                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                    "internal server error\n",
-                );
-            }
-        };
-        environment.push((
-            "GILTI_REPOSITORY_PATH".into(),
-            repository_path.into_os_string(),
-        ));
-        request
-            .extensions_mut()
-            .insert(cgi::Environment(environment));
-        match tower::ServiceExt::oneshot(self.cgit.clone(), request).await {
-            Ok(response) => response,
-            Err(error) => internal_error("cgit", error),
         }
     }
 }
@@ -662,44 +552,6 @@ fn valid_format(route: &router::Route, format: Option<&str>) -> bool {
     }
 }
 
-fn cgit_environment(
-    route: router::Route,
-    query: RequestQuery,
-    current_url: &str,
-) -> Result<Vec<(std::ffi::OsString, std::ffi::OsString)>, ()> {
-    let mut environment = query.environment;
-    let mut set = |name: &str, value: String| environment.push((name.into(), value.into()));
-    set("GILTI_CURRENT_URL", current_url.to_owned());
-
-    match route {
-        router::Route::Log(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "log".to_owned());
-            set("GILTI_REVISION", revision(route.params.rev));
-            if let Some(path) = route.params.path {
-                set("GILTI_PATH", path);
-            }
-        }
-        router::Route::AtomFeed(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "atom".to_owned());
-            set("GILTI_REVISION", route.params.reference);
-            if let Some(path) = route.params.path {
-                set("GILTI_PATH", path);
-            }
-        }
-        _ => return Err(()),
-    }
-    Ok(environment)
-}
-
-fn revision(revision: router::Revision) -> String {
-    match revision {
-        router::Revision::Head => "HEAD".to_owned(),
-        router::Revision::Ref(reference) | router::Revision::Commit(reference) => reference,
-    }
-}
-
 fn safe_repository(repo: &str) -> bool {
     !repo.is_empty()
         && !repo.starts_with('/')
@@ -763,45 +615,10 @@ fn plain_response(
 
 #[cfg(test)]
 mod tests {
-    fn environment<'a>(
-        values: &'a [(std::ffi::OsString, std::ffi::OsString)],
-        name: &str,
-    ) -> &'a str {
-        values
-            .iter()
-            .find(|(key, _)| key == std::ffi::OsStr::new(name))
-            .and_then(|(_, value)| value.to_str())
-            .unwrap()
-    }
-
-    #[test]
-    fn route_parameters_become_trusted_cgit_environment() {
-        let route = super::router::parse("/group/repo/+/refs/heads/main/+/log/src/lib.rs").unwrap();
-        let query = super::request_query(Some("ofs=5&follow=1")).unwrap();
-        let values = super::cgit_environment(route, query, "/group/repo").unwrap();
-        assert_eq!(environment(&values, "GILTI_REPOSITORY"), "group/repo");
-        assert_eq!(environment(&values, "GILTI_PAGE"), "log");
-        assert_eq!(environment(&values, "GILTI_REVISION"), "refs/heads/main");
-        assert_eq!(environment(&values, "GILTI_PATH"), "src/lib.rs");
-        assert_eq!(environment(&values, "GILTI_QUERY_OFFSET"), "5");
-        assert_eq!(environment(&values, "GILTI_QUERY_FOLLOW"), "1");
-    }
-
     #[test]
     fn structural_query_parameters_are_rejected() {
         assert!(super::request_query(Some("id=HEAD")).is_err());
         assert!(super::request_query(Some("path=README.md")).is_err());
         assert!(super::request_query(Some("format=raw&format=html")).is_err());
-    }
-
-    #[test]
-    fn cache_is_bounded() {
-        assert_eq!(
-            super::parse_cache("5").unwrap(),
-            std::time::Duration::from_secs(5)
-        );
-        assert!(super::parse_cache("0").unwrap().is_zero());
-        assert!(super::parse_cache("3601").is_err());
-        assert!(super::parse_cache("forever").is_err());
     }
 }

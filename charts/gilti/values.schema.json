@@ -22,13 +22,12 @@
         }
       }
     },
-    "cgit": {
+    "web": {
       "type": "object",
       "properties": {
         "rootTitle": { "type": "string", "pattern": "^[^\\r\\n]*$" },
         "rootDescription": { "type": "string", "pattern": "^[^\\r\\n]*$" },
-        "clonePrefix": { "type": "string", "pattern": "^[^\\r\\n]*$" },
-        "cache": { "type": "integer", "minimum": 0, "maximum": 3600 }
+        "clonePrefix": { "type": "string", "pattern": "^[^\\r\\n]*$" }
       }
     },
     "http": {

@@ -48,14 +48,12 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           env:
-            - name: GILTI_CGIT_ROOT_TITLE
-              value: {{ .Values.cgit.rootTitle | quote }}
-            - name: GILTI_CGIT_ROOT_DESCRIPTION
-              value: {{ .Values.cgit.rootDescription | quote }}
-            - name: GILTI_CGIT_CLONE_PREFIX
-              value: {{ .Values.cgit.clonePrefix | quote }}
-            - name: GILTI_CGIT_CACHE
-              value: {{ .Values.cgit.cache | quote }}
+            - name: GILTI_ROOT_TITLE
+              value: {{ .Values.web.rootTitle | quote }}
+            - name: GILTI_ROOT_DESCRIPTION
+              value: {{ .Values.web.rootDescription | quote }}
+            - name: GILTI_CLONE_PREFIX
+              value: {{ .Values.web.clonePrefix | quote }}
             - name: GILTI_HTTP_WRITE
               value: {{ ternary "1" "0" .Values.http.write | quote }}
           ports:

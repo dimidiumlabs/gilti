@@ -118,12 +118,8 @@ fn label(period: Period, timestamp: i64) -> String {
 }
 
 fn tm(timestamp: i64) -> libc::tm {
-    let mut result = std::mem::MaybeUninit::<libc::tm>::uninit();
-    // SAFETY: both pointers are valid for the duration of the call.
-    unsafe {
-        libc::gmtime_r(&timestamp, result.as_mut_ptr());
-        result.assume_init()
-    }
+    super::time::utc(timestamp)
+        .unwrap_or_else(|| super::time::utc(0).expect("the Unix epoch is representable"))
 }
 
 fn normalize(time: &mut libc::tm) {

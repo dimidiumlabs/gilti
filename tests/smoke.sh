@@ -29,6 +29,10 @@ ssh-keygen -q -t ed25519 -N '' -f "$work/admin-2"
 ssh-keygen -q -t ed25519 -N '' -f "$work/stranger"
 cat "$work/admin.pub" "$work/admin-2.pub" >"$authorized_keys"
 "$engine" volume create "$volume" >/dev/null
+if "$engine" run --rm --entrypoint /bin/sh "$image" -c 'test -e /usr/local/bin/gilti-cgit' >/dev/null 2>&1; then
+    echo 'removed legacy browser binary is installed' >&2
+    exit 1
+fi
 
 printf '%s\n' 'not an SSH key' >"$work/bad-authorized-keys"
 if "$engine" run --rm \
@@ -73,23 +77,6 @@ start() {
 }
 
 start
-cgit_path=$("$engine" exec "$name" sh -c 'command -v gilti-cgit')
-[ "$cgit_path" = /usr/local/bin/gilti-cgit ] || {
-    echo "unexpected cgit binary path: $cgit_path" >&2
-    exit 1
-}
-if "$engine" exec "$name" test -e /usr/share/webapps/cgit/cgit.cgi; then
-    echo 'legacy cgit.cgi is installed' >&2
-    exit 1
-fi
-if "$engine" exec "$name" test -e /var/cache/cgit; then
-    echo 'legacy cgit disk-cache directory exists' >&2
-    exit 1
-fi
-if "$engine" exec "$name" test -e /etc/cgitrc; then
-    echo 'legacy cgit configuration file is installed' >&2
-    exit 1
-fi
 sshd_config=$("$engine" exec "$name" /usr/sbin/sshd -T -f /etc/ssh/sshd_config \
     -C user=git,host=localhost,addr=127.0.0.1)
 for expected in \
@@ -118,18 +105,18 @@ status=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$http
     echo "POST to repository browser returned HTTP $status instead of 405" >&2
     exit 1
 }
-curl -fsS "http://127.0.0.1:$http_port/-/assets/cgit.css" | grep -q 'cgit'
-content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/cgit.css" |
+curl -fsS "http://127.0.0.1:$http_port/-/assets/gilti.css" | grep -q 'div#gilti'
+content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/gilti.css" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
 [ "$content_type" = text/css ] || {
-    echo "unexpected cgit.css content type: $content_type" >&2
+    echo "unexpected gilti.css content type: $content_type" >&2
     exit 1
 }
-curl -fsS "http://127.0.0.1:$http_port/-/assets/cgit.js" | grep -q 'function'
-content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/cgit.js" |
+curl -fsS "http://127.0.0.1:$http_port/-/assets/gilti.js" | grep -q 'function'
+content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/gilti.js" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
 [ "$content_type" = text/javascript ] || {
-    echo "unexpected cgit.js content type: $content_type" >&2
+    echo "unexpected gilti.js content type: $content_type" >&2
     exit 1
 }
 curl -fsSI "http://127.0.0.1:$http_port/-/health" >/dev/null
@@ -160,16 +147,16 @@ keys_mode=$("$engine" exec "$name" stat -c '%u:%g:%a' /run/gilti/ssh/authorized_
 }
 if "$engine" exec --user 10000:10000 "$name" sh -c \
     'printf x >>/run/gilti/ssh/authorized_keys' 2>/dev/null; then
-    echo 'Git/cgit user can modify authorized_keys' >&2
+    echo 'Git service user can modify authorized_keys' >&2
     exit 1
 fi
 if "$engine" exec --user 10000:10000 "$name" rm /run/gilti/ssh/authorized_keys \
     2>/dev/null; then
-    echo 'Git/cgit user can remove authorized_keys' >&2
+    echo 'Git service user can remove authorized_keys' >&2
     exit 1
 fi
 if "$engine" exec --user 10000:10000 "$name" test -r /var/lib/gilti/ssh/ssh_host_ed25519_key; then
-    echo 'Git/cgit user can read the SSH host private key' >&2
+    echo 'Git service user can read the SSH host private key' >&2
     exit 1
 fi
 
@@ -250,6 +237,29 @@ curl -fsS "http://127.0.0.1:$http_port/testing/+/HEAD/+/tree/README%2emd" | grep
 old_commit=$(git -C "$work/testing-clone" rev-parse HEAD^)
 new_commit=$(git -C "$work/testing-clone" rev-parse HEAD)
 curl -fsS "http://127.0.0.1:$http_port/testing/+/$new_commit" | grep -q 'Push with second key'
+log_url="http://127.0.0.1:$http_port/testing/+/refs/heads/main/+/log"
+curl -fsS "$log_url" -o "$work/log.html"
+grep -q 'id="gilti"' "$work/log.html"
+grep -q 'Push with second key' "$work/log.html"
+log_length=$(wc -c <"$work/log.html" | tr -d ' ')
+head_length=$(curl -fsSI "$log_url" |
+    awk -F ': ' 'tolower($1) == "content-length" { gsub("\\r", "", $2); print $2 }')
+[ "$head_length" = "$log_length" ] || {
+    echo "Log HEAD length $head_length differs from GET length $log_length" >&2
+    exit 1
+}
+feed_url="http://127.0.0.1:$http_port/testing/+/refs/heads/main/+/feed/atom"
+curl -fsS "$feed_url" -o "$work/feed.xml"
+grep -q '<feed xmlns=' "$work/feed.xml"
+grep -q '<title>Push with second key</title>' "$work/feed.xml"
+grep -q "<id>urn:sha1:$new_commit</id>" "$work/feed.xml"
+feed_length=$(wc -c <"$work/feed.xml" | tr -d ' ')
+head_length=$(curl -fsSI "$feed_url" |
+    awk -F ': ' 'tolower($1) == "content-length" { gsub("\\r", "", $2); print $2 }')
+[ "$head_length" = "$feed_length" ] || {
+    echo "Atom HEAD length $head_length differs from GET length $feed_length" >&2
+    exit 1
+}
 curl -fsS "http://127.0.0.1:$http_port/testing/+/stats" | grep -q 'Gilti smoke test'
 curl -fsS "http://127.0.0.1:$http_port/testing/+/diff/$old_commit..$new_commit?format=raw" |
     grep -q '^+Second key can push\.'
@@ -280,17 +290,6 @@ printf '%s' "$lfs_response" | grep -q '"code":404' || {
     echo 'unexpected LFS batch response' >&2
     exit 1
 }
-cache_url="http://127.0.0.1:$http_port/testing/+/HEAD/+/log"
-curl -fsS -D "$work/cache-1.headers" -o /dev/null "$cache_url"
-sleep 2
-curl -fsS -D "$work/cache-2.headers" -o /dev/null "$cache_url"
-cache_modified_1=$(awk -F ': ' 'tolower($1) == "last-modified" { gsub("\\r", "", $2); print $2 }' "$work/cache-1.headers")
-cache_modified_2=$(awk -F ': ' 'tolower($1) == "last-modified" { gsub("\\r", "", $2); print $2 }' "$work/cache-2.headers")
-[ -n "$cache_modified_1" ] && [ "$cache_modified_1" = "$cache_modified_2" ] || {
-    echo 'CGI response was not served from the in-memory cache' >&2
-    exit 1
-}
-
 # The running sshd uses its startup snapshot, not the mounted source file.
 cat "$work/admin.pub" >"$authorized_keys"
 # shellcheck disable=SC2086

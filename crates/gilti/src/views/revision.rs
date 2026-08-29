@@ -96,12 +96,8 @@ fn content(model: &crate::models::commit::Commit, query: super::diff::Query) -> 
 
 fn timestamp(identity: &crate::models::commit::Identity) -> String {
     let adjusted = identity.timestamp + i64::from(identity.offset_minutes) * 60;
-    let mut value = std::mem::MaybeUninit::<libc::tm>::uninit();
-    // SAFETY: both pointers are valid for the duration of the call.
-    let value = unsafe {
-        libc::gmtime_r(&adjusted, value.as_mut_ptr());
-        value.assume_init()
-    };
+    let value = crate::models::time::utc(adjusted)
+        .unwrap_or_else(|| crate::models::time::utc(0).expect("the Unix epoch is representable"));
     let sign = if identity.offset_minutes < 0 {
         '-'
     } else {

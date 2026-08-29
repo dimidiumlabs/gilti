@@ -2,17 +2,17 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
-/* cgit.js: javacript functions for cgit
+/* gilti.js: JavaScript helpers for Gilti
  *
  * Copyright (C) 2006-2018 cgit Development Team <cgit@lists.zx2c4.com>
  *
  * Licensed under GNU General Public License v2
- *   (see COPYING for full license text)
+ *   (see LICENSES/GPL-2.0-only.txt for full license text)
  */
 
 (function () {
 
-/* This follows the logic and suffixes used in ui-shared.c */
+/* Relative-age rendering shared by Gilti browser views. */
 
 var age_classes = [ "age-mins", "age-hours", "age-days",    "age-weeks",    "age-months",    "age-years" ];
 var age_suffix =  [ "min.",     "hours",     "days",        "weeks",        "months",        "years",         "years" ];

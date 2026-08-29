@@ -8,4 +8,4 @@ appVersion: 0.1.0
 
 name: gilti
 home: https://github.com/dimidiumlabs/gilti
-description: Boxed tiny Git server powered by cgit and OpenSSH
+description: Boxed tiny Git server powered by Rust and OpenSSH
