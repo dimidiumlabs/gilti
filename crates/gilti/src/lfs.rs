@@ -74,13 +74,12 @@ pub async fn serve(
     if path == "objects/batch" && method == axum::http::Method::POST {
         return batch(objects, write_enabled, request).await;
     }
-    if method == axum::http::Method::POST {
-        if let Some(oid) = path
+    if method == axum::http::Method::POST
+        && let Some(oid) = path
             .strip_prefix("objects/")
             .and_then(|value| value.strip_suffix("/verify"))
-        {
-            return verify(&objects, oid, request).await;
-        }
+    {
+        return verify(&objects, oid, request).await;
     }
     if let Some(oid) = path.strip_prefix("objects/") {
         if !valid_oid(oid) {

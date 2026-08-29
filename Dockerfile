@@ -28,7 +28,7 @@ RUN apk add --no-cache \
       openssh-server=10.0_p1-r10 \
       su-exec=0.2-r3 \
       tini=0.19.0-r3 \
-      xz=5.8.1-r0 \
+      xz=5.8.3-r0 \
       zstd=1.5.7-r0 && \
     addgroup -S -g 10000 git && \
     install -d -m 0755 -o root -g root /var/lib/gilti && \

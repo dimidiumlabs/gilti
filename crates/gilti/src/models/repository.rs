@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 pub struct Info {
     pub name: String,
     pub description: String,
+    pub has_readme: bool,
 }
 
 pub fn info(repository: &git2::Repository, name: &str) -> Info {
@@ -14,9 +15,20 @@ pub fn info(repository: &git2::Repository, name: &str) -> Info {
         .map(|description| description.trim().to_owned())
         .filter(|description| !description.is_empty())
         .unwrap_or_else(|| "[no description]".to_owned());
+    let has_readme = repository
+        .head()
+        .and_then(|head| head.peel_to_tree())
+        .ok()
+        .is_some_and(|tree| {
+            ["README.md", "README"].iter().any(|path| {
+                tree.get_path(Path::new(path))
+                    .is_ok_and(|entry| entry.kind() == Some(git2::ObjectType::Blob))
+            })
+        });
     Info {
         name: name.to_owned(),
         description,
+        has_readme,
     }
 }
 

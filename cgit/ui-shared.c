@@ -230,14 +230,6 @@ const char *cgit_repobasename(const char *reponame)
 	return rvbuf;
 }
 
-const char *cgit_snapshot_prefix(const struct cgit_repo *repo)
-{
-	if (repo->snapshot_prefix)
-		return repo->snapshot_prefix;
-
-	return cgit_repobasename(repo->url);
-}
-
 static void site_url(const char *page, const char *search, const char *sort, int ofs, int always_root)
 {
 	char *delim = "?";
@@ -365,18 +357,6 @@ void cgit_tree_link(const char *name, const char *title, const char *class,
 	reporevlink("tree", name, title, class, head, rev, path);
 }
 
-void cgit_plain_link(const char *name, const char *title, const char *class,
-		     const char *head, const char *rev, const char *path)
-{
-	reporevlink("plain", name, title, class, head, rev, path);
-}
-
-void cgit_blame_link(const char *name, const char *title, const char *class,
-		     const char *head, const char *rev, const char *path)
-{
-	reporevlink("blame", name, title, class, head, rev, path);
-}
-
 void cgit_log_link(const char *name, const char *title, const char *class,
 		   const char *head, const char *rev, const char *path,
 		   int ofs, const char *grep, const char *pattern, int showmsg,
@@ -458,34 +438,6 @@ void cgit_refs_link(const char *name, const char *title, const char *class,
 	reporevlink("refs", name, title, class, head, rev, path);
 }
 
-void cgit_snapshot_link(const char *name, const char *title, const char *class,
-			const char *head, const char *rev,
-			const char *archivename)
-{
-	const char *format = NULL;
-	const struct cgit_snapshot_format *f;
-	char *url, *full;
-	int signature = ends_with(archivename, ".asc");
-
-	for (f = cgit_snapshot_formats; f->suffix; f++)
-		if (strstr(archivename, f->suffix)) {
-			format = f->suffix + 1;
-			break;
-		}
-	if (!format)
-		return;
-	url = repo_view_url(ctx.repo->url,
-			    signature ? "archive-signature" : "archive",
-			    link_revision(head, rev), NULL);
-	full = fmtalloc("%s?format=%s", url, format);
-	free(url);
-	link_start(full, title, class);
-	free(full);
-	html("'>");
-	html_txt(name);
-	html("</a>");
-}
-
 void cgit_diff_link(const char *name, const char *title, const char *class,
 		    const char *head, const char *new_rev, const char *old_rev,
 		    const char *path)
@@ -529,38 +481,6 @@ void cgit_diff_link(const char *name, const char *title, const char *class,
 	html("</a>");
 }
 
-void cgit_patch_link(const char *name, const char *title, const char *class,
-		     const char *head, const char *rev, const char *path)
-{
-	struct strbuf url = STRBUF_INIT;
-	struct object_id oid;
-	struct commit *commit;
-	const char *new_rev = link_revision(head, rev);
-	char *old_rev = xstrdup("HEAD");
-
-	if (!repo_get_oid(the_repository, new_rev, &oid) &&
-	    (commit = lookup_commit_reference(the_repository, &oid)) &&
-	    commit->parents) {
-		free(old_rev);
-		old_rev = xstrdup(oid_to_hex(&commit->parents->item->object.oid));
-	}
-	add_repo_url(&url, ctx.repo->url);
-	strbuf_addstr(&url, "/+/patch/");
-	add_revision(&url, old_rev);
-	strbuf_addstr(&url, "..");
-	add_revision(&url, new_rev);
-	if (path) {
-		strbuf_addstr(&url, "/+/");
-		add_url_path(&url, path);
-	}
-	link_start(url.buf, title, class);
-	strbuf_release(&url);
-	free(old_rev);
-	html("'>");
-	html_txt(name);
-	html("</a>");
-}
-
 void cgit_stats_link(const char *name, const char *title, const char *class,
 		     const char *head, const char *path)
 {
@@ -569,150 +489,18 @@ void cgit_stats_link(const char *name, const char *title, const char *class,
 
 static void cgit_self_link(char *name, const char *title, const char *class)
 {
-	if (!strcmp(ctx.qry.page, "repolist"))
-		cgit_index_link(name, title, class, ctx.qry.search, ctx.qry.sort,
-				ctx.qry.ofs, 1);
-	else if (!strcmp(ctx.qry.page, "summary"))
-		cgit_summary_link(name, title, class, ctx.qry.head);
-	else if (!strcmp(ctx.qry.page, "tag"))
-		cgit_tag_link(name, title, class, ctx.qry.has_oid ?
-			       ctx.qry.oid : ctx.qry.head);
-	else if (!strcmp(ctx.qry.page, "tree"))
-		cgit_tree_link(name, title, class, ctx.qry.head,
-			       ctx.qry.has_oid ? ctx.qry.oid : NULL,
-			       ctx.qry.path);
-	else if (!strcmp(ctx.qry.page, "plain"))
-		cgit_plain_link(name, title, class, ctx.qry.head,
-				ctx.qry.has_oid ? ctx.qry.oid : NULL,
-				ctx.qry.path);
-	else if (!strcmp(ctx.qry.page, "blame"))
-		cgit_blame_link(name, title, class, ctx.qry.head,
-				ctx.qry.has_oid ? ctx.qry.oid : NULL,
-				ctx.qry.path);
-	else if (!strcmp(ctx.qry.page, "log"))
+	if (!strcmp(ctx.qry.page, "log"))
 		cgit_log_link(name, title, class, ctx.qry.head,
 			      ctx.qry.has_oid ? ctx.qry.oid : NULL,
 			      ctx.qry.path, ctx.qry.ofs,
 			      ctx.qry.grep, ctx.qry.search,
 			      ctx.qry.showmsg, ctx.qry.follow);
-	else if (!strcmp(ctx.qry.page, "commit") || !strcmp(ctx.qry.page, "revision"))
-		cgit_commit_link(name, title, class, ctx.qry.head,
-				 ctx.qry.has_oid ? ctx.qry.oid : NULL,
-				 ctx.qry.path);
-	else if (!strcmp(ctx.qry.page, "patch"))
-		cgit_patch_link(name, title, class, ctx.qry.head,
-				ctx.qry.has_oid ? ctx.qry.oid : NULL,
-				ctx.qry.path);
-	else if (!strcmp(ctx.qry.page, "refs"))
-		cgit_refs_link(name, title, class, ctx.qry.head,
-			       ctx.qry.has_oid ? ctx.qry.oid : NULL,
-			       ctx.qry.path);
-	else if (!strcmp(ctx.qry.page, "snapshot"))
-		cgit_snapshot_link(name, title, class, ctx.qry.head,
-				   ctx.qry.has_oid ? ctx.qry.oid : NULL,
-				   ctx.qry.path);
-	else if (!strcmp(ctx.qry.page, "diff"))
-		cgit_diff_link(name, title, class, ctx.qry.head,
-			       ctx.qry.oid, ctx.qry.oid2,
-			       ctx.qry.path);
-	else if (!strcmp(ctx.qry.page, "stats"))
-		cgit_stats_link(name, title, class, ctx.qry.head,
-				ctx.qry.path);
 	else {
-		/* Don't known how to make link for this page */
 		repolink(title, class, ctx.qry.page, ctx.qry.head, ctx.qry.path);
-		html("><!-- cgit_self_link() doesn't know how to make link for page '");
-		html_txt(ctx.qry.page);
-		html("' -->");
+		html("'>");
 		html_txt(name);
 		html("</a>");
 	}
-}
-
-void cgit_object_link(struct object *obj)
-{
-	char *page, *shortrev, *fullrev, *name;
-
-	fullrev = oid_to_hex(&obj->oid);
-	shortrev = xstrdup(fullrev);
-	shortrev[10] = '\0';
-	if (obj->type == OBJ_COMMIT) {
-		cgit_commit_link(fmt("commit %s...", shortrev), NULL, NULL,
-				 ctx.qry.head, fullrev, NULL);
-		return;
-	} else if (obj->type == OBJ_TREE)
-		page = "tree";
-	else if (obj->type == OBJ_TAG)
-		page = "tag";
-	else
-		page = "blob";
-	name = fmt("%s %s...", type_name(obj->type), shortrev);
-	reporevlink(page, name, NULL, NULL, ctx.qry.head, fullrev, NULL);
-}
-
-static struct string_list_item *lookup_path(struct string_list *list,
-					    const char *path)
-{
-	struct string_list_item *item;
-
-	while (path && path[0]) {
-		if ((item = string_list_lookup(list, path)))
-			return item;
-		if (!(path = strchr(path, '/')))
-			break;
-		path++;
-	}
-	return NULL;
-}
-
-void cgit_submodule_link(const char *class, char *path, const char *rev)
-{
-	struct string_list *list;
-	struct string_list_item *item;
-	char tail, *dir;
-	size_t len;
-
-	len = 0;
-	tail = 0;
-	list = &ctx.repo->submodules;
-	item = lookup_path(list, path);
-	if (!item) {
-		len = strlen(path);
-		tail = path[len - 1];
-		if (tail == '/') {
-			path[len - 1] = 0;
-			item = lookup_path(list, path);
-		}
-	}
-	if (item || ctx.repo->module_link) {
-		html("<a ");
-		if (class)
-			htmlf("class='%s' ", class);
-		html("href='");
-		if (item) {
-			html_attrf(item->util, rev);
-		} else {
-			dir = strrchr(path, '/');
-			if (dir)
-				dir++;
-			else
-				dir = path;
-			html_attrf(ctx.repo->module_link, dir, rev);
-		}
-		html("'>");
-		html_txt(path);
-		html("</a>");
-	} else {
-		html("<span");
-		if (class)
-			htmlf(" class='%s'", class);
-		html(">");
-		html_txt(path);
-		html("</span>");
-	}
-	html_txtf(" @ %.7s", rev);
-	if (item && tail)
-		path[len - 1] = tail;
 }
 
 const struct date_mode cgit_date_mode(enum date_mode_type type)
@@ -796,14 +584,6 @@ void cgit_print_http_headers(void)
 	html("\n");
 	if (ctx.env.request_method && !strcmp(ctx.env.request_method, "HEAD"))
 		exit(0);
-}
-
-void cgit_redirect(const char *url, bool permanent)
-{
-	htmlf("Status: %d %s\n", permanent ? 301 : 302, permanent ? "Moved" : "Found");
-	html("Location: ");
-	html_url_path(url);
-	html("\n\n");
 }
 
 static void print_rel_vcs_link(const char *url)
@@ -1135,20 +915,15 @@ void cgit_print_pageheader(void)
 		cgit_log_link("log", NULL, hc("log"), ctx.qry.head,
 			      NULL, ctx.qry.vpath, 0, NULL, NULL,
 			      ctx.qry.showmsg, ctx.qry.follow);
-		if (ctx.qry.page && !strcmp(ctx.qry.page, "blame"))
-			cgit_blame_link("blame", NULL, hc("blame"), ctx.qry.head,
-				        ctx.qry.oid, ctx.qry.vpath);
-		else
-			cgit_tree_link("tree", NULL, hc("tree"), ctx.qry.head,
-				       ctx.qry.oid, ctx.qry.vpath);
+		cgit_tree_link("tree", NULL, hc("tree"), ctx.qry.head,
+			       ctx.qry.oid, ctx.qry.vpath);
 		cgit_commit_link("commit", NULL,
 				 ctx.qry.page && !strcmp(ctx.qry.page, "revision") ? "active" : hc("commit"),
 				 ctx.qry.head, ctx.qry.oid, ctx.qry.vpath);
 		cgit_diff_link("diff", NULL, hc("diff"), ctx.qry.head,
-			       ctx.qry.oid, ctx.qry.oid2, ctx.qry.vpath);
-		if (ctx.repo->max_stats)
-			cgit_stats_link("stats", NULL, hc("stats"),
-					ctx.qry.head, ctx.qry.vpath);
+			       ctx.qry.oid, NULL, ctx.qry.vpath);
+		cgit_stats_link("stats", NULL, hc("stats"),
+				ctx.qry.head, ctx.qry.vpath);
 		if (ctx.repo->homepage) {
 			html("<a href='");
 			html_attr(ctx.repo->homepage);
@@ -1208,97 +983,4 @@ void cgit_print_pageheader(void)
 		html("</div>");
 	}
 	html("<div class='content'>");
-}
-
-void cgit_print_filemode(unsigned short mode)
-{
-	if (S_ISDIR(mode))
-		html("d");
-	else if (S_ISLNK(mode))
-		html("l");
-	else if (S_ISGITLINK(mode))
-		html("m");
-	else
-		html("-");
-	html_fileperm(mode >> 6);
-	html_fileperm(mode >> 3);
-	html_fileperm(mode);
-}
-
-void cgit_compose_snapshot_prefix(struct strbuf *filename, const char *base,
-				  const char *ref)
-{
-	struct object_id oid;
-
-	/*
-	 * Prettify snapshot names by stripping leading "v" or "V" if the tag
-	 * name starts with {v,V}[0-9] and the prettify mapping is injective,
-	 * i.e. each stripped tag can be inverted without ambiguities.
-	 */
-	if (repo_get_oid(the_repository, fmt("refs/tags/%s", ref), &oid) == 0 &&
-	    (ref[0] == 'v' || ref[0] == 'V') && isdigit(ref[1]) &&
-	    ((repo_get_oid(the_repository, fmt("refs/tags/%s", ref + 1), &oid) == 0) +
-	     (repo_get_oid(the_repository, fmt("refs/tags/v%s", ref + 1), &oid) == 0) +
-	     (repo_get_oid(the_repository, fmt("refs/tags/V%s", ref + 1), &oid) == 0) == 1))
-		ref++;
-
-	strbuf_addf(filename, "%s-%s", base, ref);
-}
-
-void cgit_print_snapshot_links(const struct cgit_repo *repo, const char *ref,
-			       const char *separator)
-{
-	const struct cgit_snapshot_format *f;
-	struct strbuf filename = STRBUF_INIT;
-	const char *basename;
-	size_t prefixlen;
-
-	basename = cgit_snapshot_prefix(repo);
-	if (starts_with(ref, basename))
-		strbuf_addstr(&filename, ref);
-	else
-		cgit_compose_snapshot_prefix(&filename, basename, ref);
-
-	prefixlen = filename.len;
-	for (f = cgit_snapshot_formats; f->suffix; f++) {
-		if (!(repo->snapshots & cgit_snapshot_format_bit(f)))
-			continue;
-		strbuf_setlen(&filename, prefixlen);
-		strbuf_addstr(&filename, f->suffix);
-		cgit_snapshot_link(filename.buf, NULL, NULL, NULL, NULL,
-				   filename.buf);
-		if (cgit_snapshot_get_sig(ref, f)) {
-			strbuf_addstr(&filename, ".asc");
-			html(" (");
-			cgit_snapshot_link("sig", NULL, NULL, NULL, NULL,
-					   filename.buf);
-			html(")");
-		} else if (starts_with(f->suffix, ".tar") && cgit_snapshot_get_sig(ref, &cgit_snapshot_formats[0])) {
-			strbuf_setlen(&filename, strlen(filename.buf) - strlen(f->suffix));
-			strbuf_addstr(&filename, ".tar.asc");
-			html(" (");
-			cgit_snapshot_link("sig", NULL, NULL, NULL, NULL,
-					   filename.buf);
-			html(")");
-		}
-		html(separator);
-	}
-	strbuf_release(&filename);
-}
-
-void cgit_set_title_from_path(const char *path)
-{
-	struct strbuf sb = STRBUF_INIT;
-	const char *slash, *last_slash;
-
-	if (!path)
-		return;
-
-	for (last_slash = path + strlen(path); (slash = memrchr(path, '/', last_slash - path)) != NULL; last_slash = slash) {
-		strbuf_add(&sb, slash + 1, last_slash - slash - 1);
-		strbuf_addstr(&sb, " \xc2\xab ");
-	}
-	strbuf_add(&sb, path, last_slash - path);
-	strbuf_addf(&sb, " - %s", ctx.page.title);
-	ctx.page.title = strbuf_detach(&sb, NULL);
 }

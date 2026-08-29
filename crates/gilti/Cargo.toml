@@ -17,6 +17,7 @@ rust-version.workspace = true
 [dependencies]
 axum.workspace = true
 git2.workspace = true
+libc.workspace = true
 percent-encoding.workspace = true
 tokio.workspace = true
 tower.workspace = true

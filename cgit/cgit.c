@@ -100,7 +100,6 @@ static void prepare_context(void)
 	ctx.cfg.enable_log_filecount = config_integer("CGIT_ENABLE_LOG_FILECOUNT");
 	ctx.cfg.enable_log_linecount = config_integer("CGIT_ENABLE_LOG_LINECOUNT");
 	ctx.cfg.enable_remote_branches = config_integer("CGIT_ENABLE_REMOTE_BRANCHES");
-	ctx.cfg.enable_subject_links = config_integer("CGIT_ENABLE_SUBJECT_LINKS");
 	ctx.cfg.favicon = config_string("CGIT_FAVICON");
 	ctx.cfg.footer = config_optional_string("CGIT_FOOTER");
 	ctx.cfg.head_include = config_optional_string("CGIT_HEAD_INCLUDE");
@@ -111,9 +110,6 @@ static void prepare_context(void)
 	ctx.cfg.max_atom_items = config_integer("CGIT_MAX_ATOM_ITEMS");
 	ctx.cfg.max_commit_count = config_integer("CGIT_MAX_COMMIT_COUNT");
 	ctx.cfg.max_msg_len = config_integer("CGIT_MAX_MESSAGE_LENGTH");
-	ctx.cfg.max_stats = config_integer("CGIT_MAX_STATS");
-	ctx.cfg.mimetype_file = config_optional_string("CGIT_MIMETYPE_FILE");
-	ctx.cfg.module_link = config_optional_string("CGIT_MODULE_LINK");
 	ctx.cfg.noheader = config_integer("CGIT_NOHEADER");
 	ctx.cfg.noplainemail = config_integer("CGIT_NOPLAINEMAIL");
 	cgit_default_repo_desc = config_string("CGIT_REPO_DEFAULT_DESC");
@@ -123,11 +119,9 @@ static void prepare_context(void)
 	ctx.cfg.root_title = config_string("CGIT_ROOT_TITLE");
 	ctx.cfg.script_name = config_string("SCRIPT_NAME");
 	ctx.cfg.section = config_string("CGIT_SECTION");
-	ctx.cfg.snapshots = config_integer("CGIT_SNAPSHOTS");
 	ctx.cfg.virtual_root = ensure_end(config_value("CGIT_VIRTUAL_ROOT"), '/');
 	string_list_init_dup(&ctx.cfg.css);
 	string_list_init_dup(&ctx.cfg.js);
-	string_list_init_dup(&ctx.cfg.mimetypes);
 	string_list_init_dup(&ctx.cfg.readme);
 	value = config_value("CGIT_CSS");
 	if (*value)
@@ -164,23 +158,15 @@ static void prepare_request(void)
 		ctx.qry.oid = xstrdup(ctx.qry.head);
 		ctx.qry.has_oid = 1;
 	}
-	ctx.qry.oid2 = request_optional_string("GILTI_OLD_REVISION");
 	ctx.qry.path = request_optional_string("GILTI_PATH");
-	ctx.qry.format = request_optional_string("GILTI_FORMAT");
-	ctx.qry.signature = request_optional_integer("GILTI_SIGNATURE");
 	ctx.qry.search = request_optional_string("GILTI_QUERY_SEARCH");
 	ctx.qry.grep = request_optional_string("GILTI_QUERY_GREP");
-	ctx.qry.sort = request_optional_string("GILTI_QUERY_SORT");
-	ctx.qry.period = request_optional_string("GILTI_QUERY_PERIOD");
 	ctx.qry.ofs = request_optional_integer("GILTI_QUERY_OFFSET");
 	ctx.qry.showmsg = request_optional_integer("GILTI_QUERY_SHOWMSG");
 	ctx.qry.context = request_optional_integer("GILTI_QUERY_CONTEXT");
 	ctx.qry.ignorews = request_optional_integer("GILTI_QUERY_IGNOREWS");
 	ctx.qry.follow = request_optional_integer("GILTI_QUERY_FOLLOW");
-	if (getenv("GILTI_QUERY_DIFFTYPE")) {
-		ctx.qry.difftype = request_optional_integer("GILTI_QUERY_DIFFTYPE");
-		ctx.qry.has_difftype = 1;
-	}
+	ctx.qry.difftype = request_optional_integer("GILTI_QUERY_DIFFTYPE");
 }
 
 static void prepare_repository(void)
@@ -352,7 +338,6 @@ static int prepare_repo_cmd(int nongit)
 				"Invalid revision: %s", ctx.qry.head);
 		return 1;
 	}
-	string_list_sort(&ctx.repo->submodules);
 	cgit_prepare_repo_env(ctx.repo);
 	choose_readme();
 	return 0;

@@ -66,13 +66,6 @@ typedef enum {
 	DIFF_UNIFIED, DIFF_SSDIFF, DIFF_STATONLY
 } diff_type;
 
-struct cgit_exec_filter {
-	char *cmd;
-	char **argv;
-	int old_stdout;
-	int pid;
-};
-
 struct cgit_repo {
 	char *url;
 	char *name;
@@ -82,24 +75,18 @@ struct cgit_repo {
 	char *owner;
 	char *homepage;
 	char *defbranch;
-	char *module_link;
 	struct string_list readme;
 	char *section;
 	char *clone_url;
 	char *logo;
 	char *logo_link;
-	char *snapshot_prefix;
-	int snapshots;
 	int enable_commit_graph;
 	int enable_follow_links;
 	int enable_log_filecount;
 	int enable_log_linecount;
 	int enable_remote_branches;
-	int enable_subject_links;
-	int max_stats;
 	int commit_sort;
 	time_t mtime;
-	struct string_list submodules;
 	int hide;
 	int ignore;
 };
@@ -144,21 +131,15 @@ struct reflist {
 
 struct cgit_query {
 	int has_oid;
-	int has_difftype;
 	char *repo;
 	char *page;
 	char *search;
 	char *grep;
 	char *head;
 	char *oid;
-	char *oid2;
 	char *path;
 	char *url;
-	char *period;
-	char *format;
-	int signature;
 	int   ofs;
-	char *sort;
 	int showmsg;
 	diff_type difftype;
 	int show_all;
@@ -177,8 +158,6 @@ struct cgit_config {
 	char *header;
 	char *logo;
 	char *logo_link;
-	char *mimetype_file;
-	char *module_link;
 	struct string_list readme;
 	struct string_list css;
 	char *robots;
@@ -194,19 +173,15 @@ struct cgit_config {
 	int enable_log_filecount;
 	int enable_log_linecount;
 	int enable_remote_branches;
-	int enable_subject_links;
 	int local_time;
 	int max_atom_items;
 	int max_commit_count;
 	int max_msg_len;
-	int max_stats;
 	int noplainemail;
 	int noheader;
 	int renamelimit;
-	int snapshots;
 	diff_type difftype;
 	int commit_sort;
-	struct string_list mimetypes;
 	struct string_list js;
 };
 
@@ -240,18 +215,9 @@ struct cgit_context {
 	struct cgit_page page;
 };
 
-typedef int (*write_archive_fn_t)(const char *, const char *);
-
-struct cgit_snapshot_format {
-	const char *suffix;
-	const char *mimetype;
-	write_archive_fn_t write_func;
-};
-
 extern const char *cgit_version;
 
 extern struct cgit_context ctx;
-extern const struct cgit_snapshot_format cgit_snapshot_formats[];
 
 extern char *cgit_default_repo_desc;
 extern struct cgit_repo *cgit_add_repo(const char *url);
@@ -298,15 +264,6 @@ extern struct commitinfo *cgit_parse_commit(struct commit *commit);
 extern struct taginfo *cgit_parse_tag(struct tag *tag);
 extern const char *cgit_repobasename(const char *reponame);
 
-extern int cgit_parse_snapshots_mask(const char *str);
-extern const struct object_id *cgit_snapshot_get_sig(const char *ref,
-						     const struct cgit_snapshot_format *f);
-extern const unsigned cgit_snapshot_format_bit(const struct cgit_snapshot_format *f);
-
-extern void cgit_exec_filter_init(struct cgit_exec_filter *filter, char *cmd, char **argv);
-extern int cgit_open_exec_filter(struct cgit_exec_filter *filter);
-extern int cgit_close_exec_filter(struct cgit_exec_filter *filter);
-
 extern void cgit_prepare_repo_env(struct cgit_repo * repo);
 
 extern int read_first_line(const char *path, char **buf, size_t *size);
@@ -314,7 +271,5 @@ extern int read_first_line(const char *path, char **buf, size_t *size);
 extern char *strdup_first_line(const char *txt);
 
 extern char *expand_macros(const char *txt);
-
-extern char *get_mimetype_for_filename(const char *filename);
 
 #endif /* CGIT_H */

@@ -18,8 +18,15 @@ const GIT_HTTP_BACKENDS: &[&str] = &[
     "/usr/libexec/git-core/git-http-backend",
     "/usr/lib/git-core/git-http-backend",
 ];
+const GIT: &str = "/usr/bin/git";
 const GIT_HOME: &str = "/var/lib/gilti/git";
 const REPOSITORIES: &str = "/var/lib/gilti/git/repositories";
+const ARCHIVE_COMPRESSORS: &[&str] = &[
+    "/usr/bin/bzip2",
+    "/usr/bin/lzip",
+    "/usr/bin/xz",
+    "/usr/bin/zstd",
+];
 
 const CGIT_CSS: &str = "/usr/share/webapps/cgit/cgit.css";
 const CGIT_JS: &str = "/usr/share/webapps/cgit/cgit.js";
@@ -37,7 +44,6 @@ const CGIT_ENVIRONMENT: &[(&str, &str)] = &[
     ("CGIT_ENABLE_LOG_FILECOUNT", "1"),
     ("CGIT_ENABLE_LOG_LINECOUNT", "1"),
     ("CGIT_ENABLE_REMOTE_BRANCHES", "0"),
-    ("CGIT_ENABLE_SUBJECT_LINKS", "0"),
     ("CGIT_FAVICON", "/-/assets/favicon.ico"),
     ("CGIT_FOOTER", ""),
     ("CGIT_HEADER", ""),
@@ -49,9 +55,6 @@ const CGIT_ENVIRONMENT: &[(&str, &str)] = &[
     ("CGIT_MAX_ATOM_ITEMS", "10"),
     ("CGIT_MAX_COMMIT_COUNT", "50"),
     ("CGIT_MAX_MESSAGE_LENGTH", "80"),
-    ("CGIT_MAX_STATS", "4"),
-    ("CGIT_MIMETYPE_FILE", ""),
-    ("CGIT_MODULE_LINK", ""),
     ("CGIT_NOHEADER", "0"),
     ("CGIT_NOPLAINEMAIL", "0"),
     ("CGIT_README_0", ":README.md"),
@@ -60,7 +63,6 @@ const CGIT_ENVIRONMENT: &[(&str, &str)] = &[
     ("CGIT_RENAMELIMIT", "-1"),
     ("CGIT_ROBOTS", "index, nofollow"),
     ("CGIT_SECTION", ""),
-    ("CGIT_SNAPSHOTS", "2147483647"),
     ("CGIT_VIRTUAL_ROOT", "/"),
     ("GIT_ATTR_NOSYSTEM", "1"),
     ("GIT_CONFIG_NOSYSTEM", "1"),
@@ -240,7 +242,11 @@ fn git_http_backend() -> std::io::Result<std::path::PathBuf> {
 }
 
 fn check_files(git_http_backend: &std::path::Path) -> std::io::Result<()> {
-    for path in [std::path::Path::new(CGIT), git_http_backend] {
+    for path in std::iter::once(std::path::Path::new(CGIT))
+        .chain(std::iter::once(git_http_backend))
+        .chain(std::iter::once(std::path::Path::new(GIT)))
+        .chain(ARCHIVE_COMPRESSORS.iter().map(std::path::Path::new))
+    {
         let metadata = std::fs::metadata(path)?;
         if !metadata.is_file()
             || std::os::unix::fs::PermissionsExt::mode(&metadata.permissions()) & 0o111 == 0
@@ -320,17 +326,16 @@ impl RepositoryService {
             router::Route::Repositories
                 | router::Route::Overview(_)
                 | router::Route::About(_)
+                | router::Route::Stats(_)
                 | router::Route::Object(_)
                 | router::Route::Refs(_)
+                | router::Route::Revision(_)
                 | router::Route::Tree(_)
                 | router::Route::Blame(_)
+                | router::Route::Archive(_)
                 | router::Route::ArchiveSignature(_)
-        ) || matches!(
-            &route,
-            router::Route::Revision(router::RepoRoute {
-                params: router::Revision::Ref(reference),
-                ..
-            }) if reference.starts_with("refs/tags/")
+                | router::Route::Diff(_)
+                | router::Route::Patch(_)
         );
         let query = if migrated {
             let query = match request_query(request.uri().query()) {
@@ -371,6 +376,20 @@ impl RepositoryService {
             router::Route::About(route) => {
                 views::about::serve(&self.views, route, request.method().clone()).await
             }
+            router::Route::Stats(route) => {
+                let query = match views::stats::Query::from_request(
+                    query.as_ref().expect("query parsed"),
+                ) {
+                    Ok(query) => query,
+                    Err(views::stats::QueryError::BadRequest) => {
+                        return views::bad_request("bad query\n");
+                    }
+                    Err(views::stats::QueryError::NotFound) => {
+                        return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n");
+                    }
+                };
+                views::stats::serve(&self.views, route, query, request.method().clone()).await
+            }
             router::Route::Object(route) => {
                 views::object::serve(REPOSITORIES, route, request.method().clone()).await
             }
@@ -382,6 +401,12 @@ impl RepositoryService {
             }
             router::Route::Blame(route) => {
                 views::blame::serve(&self.views, route, request.method().clone()).await
+            }
+            router::Route::Archive(route) => {
+                let Some(format) = views::archive::Format::parse(format) else {
+                    return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n");
+                };
+                views::archive::serve(&self.views, route, format, request.method().clone()).await
             }
             router::Route::ArchiveSignature(route) => {
                 views::archive_signature::serve(
@@ -399,6 +424,32 @@ impl RepositoryService {
                 ) =>
             {
                 views::tag::serve(&self.views, route, request.method().clone()).await
+            }
+            router::Route::Revision(route) => {
+                let query =
+                    match views::diff::Query::from_request(query.as_ref().expect("query parsed")) {
+                        Ok(query) => query,
+                        Err(()) => return views::bad_request("bad query\n"),
+                    };
+                views::revision::serve(&self.views, route, query, request.method().clone()).await
+            }
+            router::Route::Diff(route) => {
+                let query =
+                    match views::diff::Query::from_request(query.as_ref().expect("query parsed")) {
+                        Ok(query) => query,
+                        Err(()) => return views::bad_request("bad query\n"),
+                    };
+                views::diff::serve(
+                    &self.views,
+                    route,
+                    query,
+                    format == Some("raw"),
+                    request.method().clone(),
+                )
+                .await
+            }
+            router::Route::Patch(route) => {
+                views::patch::serve(&self.views, route, request.method().clone()).await
             }
             router::Route::GitLfs(route) => {
                 lfs::serve(
@@ -617,33 +668,14 @@ fn cgit_environment(
     current_url: &str,
 ) -> Result<Vec<(std::ffi::OsString, std::ffi::OsString)>, ()> {
     let mut environment = query.environment;
-    let format = query.format.as_deref();
     let mut set = |name: &str, value: String| environment.push((name.into(), value.into()));
     set("GILTI_CURRENT_URL", current_url.to_owned());
 
     match route {
-        router::Route::Stats(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "stats".to_owned());
-        }
-        router::Route::Revision(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "revision".to_owned());
-            set("GILTI_REVISION", revision(route.params));
-        }
         router::Route::Log(route) => {
             set("GILTI_REPOSITORY", route.repo);
             set("GILTI_PAGE", "log".to_owned());
             set("GILTI_REVISION", revision(route.params.rev));
-            if let Some(path) = route.params.path {
-                set("GILTI_PATH", path);
-            }
-        }
-        router::Route::Archive(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "snapshot".to_owned());
-            set("GILTI_REVISION", revision(route.params.rev));
-            set("GILTI_FORMAT", format.unwrap_or("tar.gz").to_owned());
             if let Some(path) = route.params.path {
                 set("GILTI_PATH", path);
             }
@@ -656,45 +688,7 @@ fn cgit_environment(
                 set("GILTI_PATH", path);
             }
         }
-        router::Route::Diff(route) => {
-            return comparison_environment(environment, route, format, false);
-        }
-        router::Route::Patch(route) => {
-            return comparison_environment(environment, route, format, true);
-        }
         _ => return Err(()),
-    }
-    Ok(environment)
-}
-
-fn comparison_environment(
-    mut environment: Vec<(std::ffi::OsString, std::ffi::OsString)>,
-    route: router::RepoRoute<router::Comparison>,
-    format: Option<&str>,
-    patch: bool,
-) -> Result<Vec<(std::ffi::OsString, std::ffi::OsString)>, ()> {
-    environment.push(("GILTI_REPOSITORY".into(), route.repo.into()));
-    environment.push((
-        "GILTI_PAGE".into(),
-        if patch {
-            "patch"
-        } else if format == Some("raw") {
-            "rawdiff"
-        } else {
-            "diff"
-        }
-        .into(),
-    ));
-    environment.push((
-        "GILTI_OLD_REVISION".into(),
-        revision(route.params.old_rev).into(),
-    ));
-    environment.push((
-        "GILTI_REVISION".into(),
-        revision(route.params.new_rev).into(),
-    ));
-    if let Some(path) = route.params.path {
-        environment.push(("GILTI_PATH".into(), path.into()));
     }
     Ok(environment)
 }
@@ -782,24 +776,15 @@ mod tests {
 
     #[test]
     fn route_parameters_become_trusted_cgit_environment() {
-        let route = super::router::parse(
-            "/group/repo/+/diff/refs/heads/main..0123456789abcdef0123456789abcdef01234567/+/src/lib.rs",
-        )
-        .unwrap();
-        let query = super::request_query(Some("format=raw&context=5")).unwrap();
+        let route = super::router::parse("/group/repo/+/refs/heads/main/+/log/src/lib.rs").unwrap();
+        let query = super::request_query(Some("ofs=5&follow=1")).unwrap();
         let values = super::cgit_environment(route, query, "/group/repo").unwrap();
         assert_eq!(environment(&values, "GILTI_REPOSITORY"), "group/repo");
-        assert_eq!(environment(&values, "GILTI_PAGE"), "rawdiff");
-        assert_eq!(
-            environment(&values, "GILTI_OLD_REVISION"),
-            "refs/heads/main"
-        );
-        assert_eq!(
-            environment(&values, "GILTI_REVISION"),
-            "0123456789abcdef0123456789abcdef01234567"
-        );
+        assert_eq!(environment(&values, "GILTI_PAGE"), "log");
+        assert_eq!(environment(&values, "GILTI_REVISION"), "refs/heads/main");
         assert_eq!(environment(&values, "GILTI_PATH"), "src/lib.rs");
-        assert_eq!(environment(&values, "GILTI_QUERY_CONTEXT"), "5");
+        assert_eq!(environment(&values, "GILTI_QUERY_OFFSET"), "5");
+        assert_eq!(environment(&values, "GILTI_QUERY_FOLLOW"), "1");
     }
 
     #[test]

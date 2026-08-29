@@ -103,7 +103,7 @@ fn html_content(model: &crate::models::tree::Tree) -> Markup {
     }
 }
 
-fn filemode(mode: u32) -> String {
+pub(super) fn filemode(mode: u32) -> String {
     let mut value = String::with_capacity(10);
     value.push(match mode {
         0o040000 => 'd',

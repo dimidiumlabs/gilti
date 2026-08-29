@@ -247,6 +247,22 @@ until curl -fsS "http://127.0.0.1:$http_port/" | grep -q 'testing'; do
 done
 curl -fsS "http://127.0.0.1:$http_port/testing" | grep -q 'Initial commit'
 curl -fsS "http://127.0.0.1:$http_port/testing/+/HEAD/+/tree/README%2emd" | grep -q 'Testing'
+old_commit=$(git -C "$work/testing-clone" rev-parse HEAD^)
+new_commit=$(git -C "$work/testing-clone" rev-parse HEAD)
+curl -fsS "http://127.0.0.1:$http_port/testing/+/$new_commit" | grep -q 'Push with second key'
+curl -fsS "http://127.0.0.1:$http_port/testing/+/stats" | grep -q 'Gilti smoke test'
+curl -fsS "http://127.0.0.1:$http_port/testing/+/diff/$old_commit..$new_commit?format=raw" |
+    grep -q '^+Second key can push\.'
+curl -fsS "http://127.0.0.1:$http_port/testing/+/patch/$old_commit..$new_commit/+/README%2emd" |
+    grep -q '^Subject: Push with second key'
+for format in tar tar.gz tar.bz2 tar.lz tar.xz tar.zst zip; do
+    curl -fsS "http://127.0.0.1:$http_port/testing/+/HEAD/+/archive?format=$format" \
+        -o "$work/testing.$format"
+    [ -s "$work/testing.$format" ] || {
+        echo "empty $format archive" >&2
+        exit 1
+    }
+done
 summary_status=$(curl -sS -o /dev/null -w '%{http_code}:%{redirect_url}' \
     "http://127.0.0.1:$http_port/testing/+/summary")
 [ "$summary_status" = "308:http://127.0.0.1:$http_port/testing" ] || {
@@ -264,7 +280,7 @@ printf '%s' "$lfs_response" | grep -q '"code":404' || {
     echo 'unexpected LFS batch response' >&2
     exit 1
 }
-cache_url="http://127.0.0.1:$http_port/testing"
+cache_url="http://127.0.0.1:$http_port/testing/+/HEAD/+/log"
 curl -fsS -D "$work/cache-1.headers" -o /dev/null "$cache_url"
 sleep 2
 curl -fsS -D "$work/cache-2.headers" -o /dev/null "$cache_url"

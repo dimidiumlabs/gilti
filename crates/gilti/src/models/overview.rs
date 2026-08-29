@@ -63,17 +63,17 @@ impl Overview {
             }
         }
         for tag in &refs.tags {
-            if let Ok(reference) = repository.find_reference(&tag.reference) {
-                if let Ok(commit) = reference.peel_to_commit() {
-                    decorations
-                        .entry(commit.id())
-                        .or_default()
-                        .push(Decoration {
-                            label: tag.name.clone(),
-                            reference: Some(tag.reference.clone()),
-                            tag: true,
-                        });
-                }
+            if let Ok(reference) = repository.find_reference(&tag.reference)
+                && let Ok(commit) = reference.peel_to_commit()
+            {
+                decorations
+                    .entry(commit.id())
+                    .or_default()
+                    .push(Decoration {
+                        label: tag.name.clone(),
+                        reference: Some(tag.reference.clone()),
+                        tag: true,
+                    });
             }
         }
         let mut walk = repository.revwalk().map_err(super::Error::from_git)?;

@@ -51,20 +51,15 @@ struct cgit_repo *cgit_add_repo(const char *url)
 	ret->owner = NULL;
 	ret->homepage = NULL;
 	ret->section = ctx.cfg.section;
-	ret->snapshots = ctx.cfg.snapshots;
 	ret->enable_commit_graph = ctx.cfg.enable_commit_graph;
 	ret->enable_follow_links = ctx.cfg.enable_follow_links;
 	ret->enable_log_filecount = ctx.cfg.enable_log_filecount;
 	ret->enable_log_linecount = ctx.cfg.enable_log_linecount;
 	ret->enable_remote_branches = ctx.cfg.enable_remote_branches;
-	ret->enable_subject_links = ctx.cfg.enable_subject_links;
-	ret->max_stats = ctx.cfg.max_stats;
 	ret->commit_sort = ctx.cfg.commit_sort;
-	ret->module_link = ctx.cfg.module_link;
 	ret->readme = ctx.cfg.readme;
 	ret->mtime = -1;
 	ret->clone_url = ctx.cfg.clone_url;
-	ret->submodules.strdup_strings = 1;
 	ret->hide = ret->ignore = 0;
 	return ret;
 }
@@ -350,37 +345,6 @@ void cgit_diff_commit(struct commit *commit, filepair_fn fn, const char *prefix)
 		       ctx.qry.ignorews);
 }
 
-int cgit_parse_snapshots_mask(const char *str)
-{
-	struct string_list tokens = STRING_LIST_INIT_DUP;
-	struct string_list_item *item;
-	const struct cgit_snapshot_format *f;
-	int rv = 0;
-
-	/* favor legacy setting */
-	if (atoi(str))
-		return 1;
-
-	if (strcmp(str, "all") == 0)
-		return INT_MAX;
-
-	string_list_split(&tokens, str, " ", -1);
-	string_list_remove_empty_items(&tokens, 0);
-
-	for_each_string_list_item(item, &tokens) {
-		for (f = cgit_snapshot_formats; f->suffix; f++) {
-			if (!strcmp(item->string, f->suffix) ||
-			    !strcmp(item->string, f->suffix + 1)) {
-				rv |= cgit_snapshot_format_bit(f);
-				break;
-			}
-		}
-	}
-
-	string_list_clear(&tokens, 0);
-	return rv;
-}
-
 typedef struct {
 	char * name;
 	char * value;
@@ -515,49 +479,4 @@ char *expand_macros(const char *txt)
 		*p = '\0';
 	}
 	return result;
-}
-
-char *get_mimetype_for_filename(const char *filename)
-{
-	const char *ext;
-	char *mimetype, line[1024];
-	struct string_list list = STRING_LIST_INIT_NODUP;
-	int i;
-	FILE *file;
-	struct string_list_item *mime;
-
-	if (!filename)
-		return NULL;
-
-	ext = strrchr(filename, '.');
-	if (!ext)
-		return NULL;
-	++ext;
-	if (!ext[0])
-		return NULL;
-	mime = string_list_lookup(&ctx.cfg.mimetypes, ext);
-	if (mime)
-		return xstrdup(mime->util);
-
-	if (!ctx.cfg.mimetype_file)
-		return NULL;
-	file = fopen(ctx.cfg.mimetype_file, "r");
-	if (!file)
-		return NULL;
-	while (fgets(line, sizeof(line), file)) {
-		if (!line[0] || line[0] == '#')
-			continue;
-		string_list_split_in_place(&list, line, " \t\r\n", -1);
-		string_list_remove_empty_items(&list, 0);
-		mimetype = list.items[0].string;
-		for (i = 1; i < list.nr; i++) {
-			if (!strcasecmp(ext, list.items[i].string)) {
-				fclose(file);
-				return xstrdup(mimetype);
-			}
-		}
-		string_list_clear(&list, 0);
-	}
-	fclose(file);
-	return NULL;
 }

@@ -31,9 +31,29 @@ pub fn render(
     content: Markup,
     method: &axum::http::Method,
 ) -> axum::response::Response {
+    render_titled(context, repository, revision, active, None, content, method)
+}
+
+pub fn render_titled(
+    context: &Context,
+    repository: &crate::models::repository::Info,
+    revision: &str,
+    active: Page,
+    page_title: Option<&str>,
+    content: Markup,
+    method: &axum::http::Method,
+) -> axum::response::Response {
     let repo = repository_url(&repository.name);
     let rev = encode_path(revision);
-    let title = format!("{} - {}", repository.name, repository.description);
+    let title = page_title.map_or_else(
+        || format!("{} - {}", repository.name, repository.description),
+        |page_title| {
+            format!(
+                "{page_title} - {} - {}",
+                repository.name, repository.description
+            )
+        },
+    );
     let document = html! {
         (DOCTYPE)
         html lang="en" {
@@ -54,7 +74,9 @@ pub fn render(
                     tr { td class="sub" { (&repository.description) } }
                 }
                 table class="tabs" { tr { td {
-                    (tab(&format!("{repo}/+/about"), "about", active == Page::About))
+                    @if repository.has_readme {
+                        (tab(&format!("{repo}/+/about"), "about", active == Page::About))
+                    }
                     (tab(&repo, "summary", active == Page::Summary))
                     (tab(&format!("{repo}/+/refs"), "refs", active == Page::Refs))
                     (tab(&format!("{repo}/+/{rev}/+/log"), "log", active == Page::Log))
