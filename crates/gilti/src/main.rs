@@ -3,8 +3,9 @@
 
 mod cgi;
 mod lfs;
+mod models;
 pub mod router;
-mod ui;
+mod views;
 
 const DEFAULT_LISTEN_ADDR: &str = "0.0.0.0:8080";
 const DEFAULT_CACHE_SECONDS: &str = "5";
@@ -26,26 +27,17 @@ const CGIT_LOGO: &str = "/usr/share/webapps/cgit/cgit.png";
 const CGIT_FAVICON: &str = "/usr/share/webapps/cgit/favicon.ico";
 
 const CGIT_ENVIRONMENT: &[(&str, &str)] = &[
-    ("CGIT_AGEFILE", "info/web/last-modified"),
-    ("CGIT_BRANCH_SORT", "0"),
-    ("CGIT_CASE_SENSITIVE_SORT", "1"),
     ("CGIT_CLONE_URL", ""),
     ("CGIT_COMMIT_SORT", "0"),
     ("CGIT_CSS", "/-/assets/cgit.css"),
     ("CGIT_DIFFTYPE", "0"),
     ("CGIT_EMBEDDED", "0"),
-    ("CGIT_ENABLE_BLAME", "1"),
     ("CGIT_ENABLE_COMMIT_GRAPH", "1"),
     ("CGIT_ENABLE_FOLLOW_LINKS", "0"),
-    ("CGIT_ENABLE_HTML_SERVING", "1"),
-    ("CGIT_ENABLE_HTTP_CLONE", "1"),
-    ("CGIT_ENABLE_INDEX_LINKS", "1"),
-    ("CGIT_ENABLE_INDEX_OWNER", "1"),
     ("CGIT_ENABLE_LOG_FILECOUNT", "1"),
     ("CGIT_ENABLE_LOG_LINECOUNT", "1"),
     ("CGIT_ENABLE_REMOTE_BRANCHES", "0"),
     ("CGIT_ENABLE_SUBJECT_LINKS", "0"),
-    ("CGIT_ENABLE_TREE_LINENUMBERS", "1"),
     ("CGIT_FAVICON", "/-/assets/favicon.ico"),
     ("CGIT_FOOTER", ""),
     ("CGIT_HEADER", ""),
@@ -55,11 +47,8 @@ const CGIT_ENVIRONMENT: &[(&str, &str)] = &[
     ("CGIT_LOGO", "/-/assets/cgit.png"),
     ("CGIT_LOGO_LINK", ""),
     ("CGIT_MAX_ATOM_ITEMS", "10"),
-    ("CGIT_MAX_BLOB_SIZE", "0"),
     ("CGIT_MAX_COMMIT_COUNT", "50"),
     ("CGIT_MAX_MESSAGE_LENGTH", "80"),
-    ("CGIT_MAX_REPO_COUNT", "50"),
-    ("CGIT_MAX_REPODESC_LENGTH", "80"),
     ("CGIT_MAX_STATS", "4"),
     ("CGIT_MIMETYPE_FILE", ""),
     ("CGIT_MODULE_LINK", ""),
@@ -67,22 +56,11 @@ const CGIT_ENVIRONMENT: &[(&str, &str)] = &[
     ("CGIT_NOPLAINEMAIL", "0"),
     ("CGIT_README_0", ":README.md"),
     ("CGIT_README_1", ":README"),
-    ("CGIT_REMOVE_SUFFIX", "1"),
     ("CGIT_REPO_DEFAULT_DESC", "[no description]"),
     ("CGIT_RENAMELIMIT", "-1"),
-    ("CGIT_REPOSITORY_SORT", "name"),
     ("CGIT_ROBOTS", "index, nofollow"),
-    ("CGIT_ROOT_README", ""),
-    ("CGIT_SCAN_HIDDEN_PATH", "0"),
-    ("CGIT_SCAN_PATH", "/var/lib/gilti/git/repositories"),
     ("CGIT_SECTION", ""),
-    ("CGIT_SECTION_FROM_PATH", "0"),
-    ("CGIT_SECTION_SORT", "1"),
     ("CGIT_SNAPSHOTS", "2147483647"),
-    ("CGIT_STRICT_EXPORT", ""),
-    ("CGIT_SUMMARY_BRANCHES", "10"),
-    ("CGIT_SUMMARY_LOG", "10"),
-    ("CGIT_SUMMARY_TAGS", "10"),
     ("CGIT_VIRTUAL_ROOT", "/"),
     ("GIT_ATTR_NOSYSTEM", "1"),
     ("GIT_CONFIG_NOSYSTEM", "1"),
@@ -92,6 +70,7 @@ const CGIT_ENVIRONMENT: &[(&str, &str)] = &[
 struct RepositoryService {
     cgit: cgi::Cgi,
     git: cgi::Cgi,
+    views: views::shared::Context,
     write_enabled: bool,
 }
 
@@ -166,6 +145,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    let views = views::shared::Context {
+        repositories: REPOSITORIES,
+        root_title: std::sync::Arc::from(config.root_title.clone()),
+        root_description: std::sync::Arc::from(config.root_description.clone()),
+        clone_prefix: std::sync::Arc::from(config.clone_prefix.clone()),
+    };
     let mut cgit = cgi::Cgi::new(CGIT, GIT_HOME, config.listen_addr)
         .cache(config.cache)
         .env("CGIT_ROOT_TITLE", config.root_title)
@@ -187,6 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let repositories = RepositoryService {
         cgit,
         git,
+        views,
         write_enabled: config.http_write,
     };
     let app = axum::Router::new()
@@ -329,10 +315,91 @@ impl RepositoryService {
         {
             request.extensions_mut().insert(cgi::RemoteAddr(remote));
         }
+        let migrated = matches!(
+            &route,
+            router::Route::Repositories
+                | router::Route::Overview(_)
+                | router::Route::About(_)
+                | router::Route::Object(_)
+                | router::Route::Refs(_)
+                | router::Route::Tree(_)
+                | router::Route::Blame(_)
+                | router::Route::ArchiveSignature(_)
+        ) || matches!(
+            &route,
+            router::Route::Revision(router::RepoRoute {
+                params: router::Revision::Ref(reference),
+                ..
+            }) if reference.starts_with("refs/tags/")
+        );
+        let query = if migrated {
+            let query = match request_query(request.uri().query()) {
+                Ok(query) => query,
+                Err(()) => {
+                    return plain_response(axum::http::StatusCode::BAD_REQUEST, "bad query\n");
+                }
+            };
+            if !valid_format(&route, query.format.as_deref()) {
+                return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n");
+            }
+            Some(query)
+        } else {
+            None
+        };
+        let format = query.as_ref().and_then(|query| query.format.as_deref());
 
         match route {
+            router::Route::Repositories => {
+                views::repositories::serve(
+                    &self.views,
+                    views::repositories::Query::from_request(query.as_ref().expect("query parsed")),
+                    request.method().clone(),
+                )
+                .await
+            }
             router::Route::Summary(route) => redirect(&route.repo),
             router::Route::GitClone(route) => redirect(&route.repo),
+            router::Route::Overview(route) => {
+                views::overview::serve(
+                    &self.views,
+                    route,
+                    request.headers(),
+                    request.method().clone(),
+                )
+                .await
+            }
+            router::Route::About(route) => {
+                views::about::serve(&self.views, route, request.method().clone()).await
+            }
+            router::Route::Object(route) => {
+                views::object::serve(REPOSITORIES, route, request.method().clone()).await
+            }
+            router::Route::Refs(route) => {
+                views::refs::serve(&self.views, route, request.method().clone()).await
+            }
+            router::Route::Tree(route) => {
+                views::tree::serve(&self.views, route, format, request.method().clone()).await
+            }
+            router::Route::Blame(route) => {
+                views::blame::serve(&self.views, route, request.method().clone()).await
+            }
+            router::Route::ArchiveSignature(route) => {
+                views::archive_signature::serve(
+                    &self.views,
+                    route,
+                    format,
+                    request.method().clone(),
+                )
+                .await
+            }
+            router::Route::Revision(route)
+                if matches!(
+                    &route.params,
+                    router::Revision::Ref(reference) if reference.starts_with("refs/tags/")
+                ) =>
+            {
+                views::tag::serve(&self.views, route, request.method().clone()).await
+            }
             router::Route::GitLfs(route) => {
                 lfs::serve(
                     std::path::Path::new(REPOSITORIES),
@@ -419,16 +486,43 @@ impl RepositoryService {
         if !valid_format(&route, query.format.as_deref()) {
             return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n");
         }
-        let environment = match cgit_environment(route, query, request.uri().path()) {
+        let mut environment = match cgit_environment(route, query, request.uri().path()) {
             Ok(environment) => environment,
             Err(()) => return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n"),
         };
+        let repository = environment
+            .iter()
+            .find(|(name, _)| name == std::ffi::OsStr::new("GILTI_REPOSITORY"))
+            .and_then(|(_, value)| value.to_str());
+        let repository_path = match repository {
+            Some(repository) => crate::models::repository::path(
+                std::path::Path::new(self.views.repositories),
+                repository,
+            ),
+            None => return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n"),
+        };
+        let repository_path = match repository_path {
+            Ok(path) => path,
+            Err(crate::models::Error::NotFound) => {
+                return plain_response(axum::http::StatusCode::NOT_FOUND, "not found\n");
+            }
+            Err(crate::models::Error::Internal(error)) => {
+                eprintln!("gilti: repository lookup failed: {error}");
+                return plain_response(
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal server error\n",
+                );
+            }
+        };
+        environment.push((
+            "GILTI_REPOSITORY_PATH".into(),
+            repository_path.into_os_string(),
+        ));
         request
             .extensions_mut()
             .insert(cgi::Environment(environment));
-        let method = request.method().clone();
         match tower::ServiceExt::oneshot(self.cgit.clone(), request).await {
-            Ok(response) => render_private_page(method, response).await,
+            Ok(response) => response,
             Err(error) => internal_error("cgit", error),
         }
     }
@@ -438,6 +532,15 @@ impl RepositoryService {
 struct RequestQuery {
     format: Option<String>,
     environment: Vec<(std::ffi::OsString, std::ffi::OsString)>,
+}
+
+impl RequestQuery {
+    fn value(&self, name: &str) -> Option<&str> {
+        self.environment
+            .iter()
+            .find(|(key, _)| key == std::ffi::OsStr::new(name))
+            .and_then(|(_, value)| value.to_str())
+    }
 }
 
 fn request_query(query: Option<&str>) -> Result<RequestQuery, ()> {
@@ -519,27 +622,9 @@ fn cgit_environment(
     set("GILTI_CURRENT_URL", current_url.to_owned());
 
     match route {
-        router::Route::Repositories => set("GILTI_PAGE", "repolist".to_owned()),
-        router::Route::Overview(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "summary".to_owned());
-        }
-        router::Route::About(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "about".to_owned());
-        }
         router::Route::Stats(route) => {
             set("GILTI_REPOSITORY", route.repo);
             set("GILTI_PAGE", "stats".to_owned());
-        }
-        router::Route::Object(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "blob".to_owned());
-            set("GILTI_REVISION", route.params);
-        }
-        router::Route::Refs(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "refs".to_owned());
         }
         router::Route::Revision(route) => {
             set("GILTI_REPOSITORY", route.repo);
@@ -554,28 +639,6 @@ fn cgit_environment(
                 set("GILTI_PATH", path);
             }
         }
-        router::Route::Tree(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set(
-                "GILTI_PAGE",
-                if format == Some("raw") {
-                    "plain"
-                } else {
-                    "tree"
-                }
-                .to_owned(),
-            );
-            set("GILTI_REVISION", revision(route.params.rev));
-            if let Some(path) = route.params.path {
-                set("GILTI_PATH", path);
-            }
-        }
-        router::Route::Blame(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "blame".to_owned());
-            set("GILTI_REVISION", revision(route.params.rev));
-            set("GILTI_PATH", route.params.path);
-        }
         router::Route::Archive(route) => {
             set("GILTI_REPOSITORY", route.repo);
             set("GILTI_PAGE", "snapshot".to_owned());
@@ -584,13 +647,6 @@ fn cgit_environment(
             if let Some(path) = route.params.path {
                 set("GILTI_PATH", path);
             }
-        }
-        router::Route::ArchiveSignature(route) => {
-            set("GILTI_REPOSITORY", route.repo);
-            set("GILTI_PAGE", "snapshot".to_owned());
-            set("GILTI_REVISION", revision(route.params));
-            set("GILTI_FORMAT", format.unwrap_or("tar.gz").to_owned());
-            set("GILTI_SIGNATURE", "1".to_owned());
         }
         router::Route::AtomFeed(route) => {
             set("GILTI_REPOSITORY", route.repo);
@@ -692,52 +748,6 @@ fn internal_error(context: &str, error: std::io::Error) -> axum::response::Respo
     )
 }
 
-async fn render_private_page(
-    method: axum::http::Method,
-    response: axum::response::Response,
-) -> axum::response::Response {
-    let private_page = response
-        .headers()
-        .get(axum::http::header::CONTENT_TYPE)
-        .is_some_and(|value| value.as_bytes() == ui::PRIVATE_CONTENT_TYPE.as_bytes());
-    if !private_page {
-        return response;
-    }
-
-    let (mut parts, body) = response.into_parts();
-    parts.headers.insert(
-        axum::http::header::CONTENT_TYPE,
-        axum::http::HeaderValue::from_static("text/html; charset=UTF-8"),
-    );
-    parts.headers.remove(axum::http::header::CONTENT_LENGTH);
-    if method == axum::http::Method::HEAD {
-        return axum::http::response::Response::from_parts(parts, axum::body::Body::empty());
-    }
-    let body = match axum::body::to_bytes(body, usize::MAX).await {
-        Ok(body) => body,
-        Err(error) => {
-            eprintln!("gilti: cannot read private page response: {error}");
-            return plain_response(
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                "internal server error\n",
-            );
-        }
-    };
-    match ui::render(&body) {
-        Ok(markup) => axum::http::response::Response::from_parts(
-            parts,
-            axum::body::Body::from(markup.into_string()),
-        ),
-        Err(error) => {
-            eprintln!("gilti: invalid private page response: {error}");
-            plain_response(
-                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                "internal server error\n",
-            )
-        }
-    }
-}
-
 fn response(
     status: axum::http::StatusCode,
     content_type: &'static str,
@@ -808,79 +818,5 @@ mod tests {
         assert!(super::parse_cache("0").unwrap().is_zero());
         assert!(super::parse_cache("3601").is_err());
         assert!(super::parse_cache("forever").is_err());
-    }
-
-    #[tokio::test]
-    async fn private_pages_become_html_and_head_keeps_headers() {
-        let model = br#"{"page":"repolist","title":"Gilti","root_desc":"","root_url":"/","about_url":"/-/about","noheader":true,"search":"","current_url":"/","root_readme":false,"owner_enabled":false,"links_enabled":false,"section_grouping":false,"shell":{"embedded":false,"robots":"","css":[],"js":[],"favicon":"","head_include":null,"header":null,"footer_configured":false,"footer":null,"logo":"","logo_link":"","cgit_version":"v1","git_version":"2","generated_at":"now"},"sort_urls":{"name":"/?s=name","desc":"/?s=desc","owner":"/?s=owner","idle":"/?s=idle"},"rows":[],"pager":[]}"#;
-        let response = axum::http::Response::builder()
-            .status(axum::http::StatusCode::OK)
-            .header(
-                axum::http::header::CONTENT_TYPE,
-                super::ui::PRIVATE_CONTENT_TYPE,
-            )
-            .header(axum::http::header::CACHE_CONTROL, "max-age=60")
-            .header(axum::http::header::CONTENT_LENGTH, model.len())
-            .body(axum::body::Body::from(model.as_slice()))
-            .unwrap();
-        let response = super::render_private_page(axum::http::Method::GET, response).await;
-        assert_eq!(
-            response.headers()[axum::http::header::CONTENT_TYPE],
-            "text/html; charset=UTF-8"
-        );
-        assert_eq!(
-            response.headers()[axum::http::header::CACHE_CONTROL],
-            "max-age=60"
-        );
-        assert!(
-            !response
-                .headers()
-                .contains_key(axum::http::header::CONTENT_LENGTH)
-        );
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
-            .unwrap();
-        assert!(
-            std::str::from_utf8(&body)
-                .unwrap()
-                .contains("repository list")
-        );
-
-        let response = axum::http::Response::builder()
-            .header(
-                axum::http::header::CONTENT_TYPE,
-                super::ui::PRIVATE_CONTENT_TYPE,
-            )
-            .header(axum::http::header::CACHE_CONTROL, "max-age=60")
-            .body(axum::body::Body::empty())
-            .unwrap();
-        let response = super::render_private_page(axum::http::Method::HEAD, response).await;
-        assert_eq!(
-            response.headers()[axum::http::header::CONTENT_TYPE],
-            "text/html; charset=UTF-8"
-        );
-        assert!(
-            axum::body::to_bytes(response.into_body(), usize::MAX)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-    }
-
-    #[tokio::test]
-    async fn malformed_private_page_fails_closed() {
-        let response = axum::http::Response::builder()
-            .header(
-                axum::http::header::CONTENT_TYPE,
-                super::ui::PRIVATE_CONTENT_TYPE,
-            )
-            .body(axum::body::Body::from("not json"))
-            .unwrap();
-        assert_eq!(
-            super::render_private_page(axum::http::Method::GET, response)
-                .await
-                .status(),
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR
-        );
     }
 }

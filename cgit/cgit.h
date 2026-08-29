@@ -90,27 +90,18 @@ struct cgit_repo {
 	char *logo_link;
 	char *snapshot_prefix;
 	int snapshots;
-	int enable_blame;
 	int enable_commit_graph;
 	int enable_follow_links;
 	int enable_log_filecount;
 	int enable_log_linecount;
 	int enable_remote_branches;
 	int enable_subject_links;
-	int enable_html_serving;
 	int max_stats;
-	int branch_sort;
 	int commit_sort;
 	time_t mtime;
 	struct string_list submodules;
 	int hide;
 	int ignore;
-};
-
-struct cgit_repolist {
-	int length;
-	int count;
-	struct cgit_repo *repos;
 };
 
 struct commitinfo {
@@ -178,7 +169,6 @@ struct cgit_query {
 };
 
 struct cgit_config {
-	char *agefile;
 	char *clone_prefix;
 	char *clone_url;
 	char *favicon;
@@ -197,44 +187,24 @@ struct cgit_config {
 	char *root_readme;
 	char *script_name;
 	char *section;
-	char *repository_sort;
 	char *virtual_root;	/* Always ends with '/'. */
-	char *strict_export;
-	int case_sensitive_sort;
 	int embedded;
 	int enable_follow_links;
-	int enable_http_clone;
-	int enable_index_links;
-	int enable_index_owner;
-	int enable_blame;
 	int enable_commit_graph;
 	int enable_log_filecount;
 	int enable_log_linecount;
 	int enable_remote_branches;
 	int enable_subject_links;
-	int enable_html_serving;
-	int enable_tree_linenumbers;
 	int local_time;
 	int max_atom_items;
-	int max_repo_count;
 	int max_commit_count;
 	int max_msg_len;
-	int max_repodesc_len;
-	int max_blob_size;
 	int max_stats;
 	int noplainemail;
 	int noheader;
 	int renamelimit;
-	int remove_suffix;
-	int scan_hidden_path;
-	int section_from_path;
 	int snapshots;
-	int section_sort;
-	int summary_branches;
-	int summary_log;
-	int summary_tags;
 	diff_type difftype;
-	int branch_sort;
 	int commit_sort;
 	struct string_list mimetypes;
 	struct string_list js;
@@ -280,13 +250,11 @@ struct cgit_snapshot_format {
 
 extern const char *cgit_version;
 
-extern struct cgit_repolist cgit_repolist;
 extern struct cgit_context ctx;
 extern const struct cgit_snapshot_format cgit_snapshot_formats[];
 
 extern char *cgit_default_repo_desc;
 extern struct cgit_repo *cgit_add_repo(const char *url);
-extern struct cgit_repo *cgit_get_repoinfo(const char *url);
 
 extern int chk_zero(int result, char *msg);
 extern int chk_positive(int result, char *msg);

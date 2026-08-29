@@ -17,9 +17,6 @@
 #include "cmd.h"
 #include "html.h"
 #include "ui-shared.h"
-#include "ui-blob.h"
-#include "ui-summary.h"
-#include "scan-tree.h"
 
 const char *cgit_version = CGIT_VERSION;
 
@@ -93,26 +90,17 @@ static void prepare_context(void)
 	const char *value;
 
 	memset(&ctx, 0, sizeof(ctx));
-	ctx.cfg.agefile = config_string("CGIT_AGEFILE");
-	ctx.cfg.branch_sort = config_integer("CGIT_BRANCH_SORT");
-	ctx.cfg.case_sensitive_sort = config_integer("CGIT_CASE_SENSITIVE_SORT");
 	ctx.cfg.clone_prefix = config_optional_string("CGIT_CLONE_PREFIX");
 	ctx.cfg.clone_url = config_optional_string("CGIT_CLONE_URL");
 	ctx.cfg.commit_sort = config_integer("CGIT_COMMIT_SORT");
 	ctx.cfg.difftype = config_integer("CGIT_DIFFTYPE");
 	ctx.cfg.embedded = config_integer("CGIT_EMBEDDED");
-	ctx.cfg.enable_blame = config_integer("CGIT_ENABLE_BLAME");
 	ctx.cfg.enable_commit_graph = config_integer("CGIT_ENABLE_COMMIT_GRAPH");
 	ctx.cfg.enable_follow_links = config_integer("CGIT_ENABLE_FOLLOW_LINKS");
-	ctx.cfg.enable_html_serving = config_integer("CGIT_ENABLE_HTML_SERVING");
-	ctx.cfg.enable_http_clone = config_integer("CGIT_ENABLE_HTTP_CLONE");
-	ctx.cfg.enable_index_links = config_integer("CGIT_ENABLE_INDEX_LINKS");
-	ctx.cfg.enable_index_owner = config_integer("CGIT_ENABLE_INDEX_OWNER");
 	ctx.cfg.enable_log_filecount = config_integer("CGIT_ENABLE_LOG_FILECOUNT");
 	ctx.cfg.enable_log_linecount = config_integer("CGIT_ENABLE_LOG_LINECOUNT");
 	ctx.cfg.enable_remote_branches = config_integer("CGIT_ENABLE_REMOTE_BRANCHES");
 	ctx.cfg.enable_subject_links = config_integer("CGIT_ENABLE_SUBJECT_LINKS");
-	ctx.cfg.enable_tree_linenumbers = config_integer("CGIT_ENABLE_TREE_LINENUMBERS");
 	ctx.cfg.favicon = config_string("CGIT_FAVICON");
 	ctx.cfg.footer = config_optional_string("CGIT_FOOTER");
 	ctx.cfg.head_include = config_optional_string("CGIT_HEAD_INCLUDE");
@@ -121,34 +109,21 @@ static void prepare_context(void)
 	ctx.cfg.logo = config_string("CGIT_LOGO");
 	ctx.cfg.logo_link = config_optional_string("CGIT_LOGO_LINK");
 	ctx.cfg.max_atom_items = config_integer("CGIT_MAX_ATOM_ITEMS");
-	ctx.cfg.max_blob_size = config_integer("CGIT_MAX_BLOB_SIZE");
 	ctx.cfg.max_commit_count = config_integer("CGIT_MAX_COMMIT_COUNT");
 	ctx.cfg.max_msg_len = config_integer("CGIT_MAX_MESSAGE_LENGTH");
-	ctx.cfg.max_repo_count = config_integer("CGIT_MAX_REPO_COUNT");
-	ctx.cfg.max_repodesc_len = config_integer("CGIT_MAX_REPODESC_LENGTH");
 	ctx.cfg.max_stats = config_integer("CGIT_MAX_STATS");
 	ctx.cfg.mimetype_file = config_optional_string("CGIT_MIMETYPE_FILE");
 	ctx.cfg.module_link = config_optional_string("CGIT_MODULE_LINK");
 	ctx.cfg.noheader = config_integer("CGIT_NOHEADER");
 	ctx.cfg.noplainemail = config_integer("CGIT_NOPLAINEMAIL");
-	ctx.cfg.remove_suffix = config_integer("CGIT_REMOVE_SUFFIX");
 	cgit_default_repo_desc = config_string("CGIT_REPO_DEFAULT_DESC");
 	ctx.cfg.renamelimit = config_integer("CGIT_RENAMELIMIT");
-	ctx.cfg.repository_sort = config_string("CGIT_REPOSITORY_SORT");
 	ctx.cfg.robots = config_string("CGIT_ROBOTS");
 	ctx.cfg.root_desc = config_string("CGIT_ROOT_DESC");
-	ctx.cfg.root_readme = config_optional_string("CGIT_ROOT_README");
 	ctx.cfg.root_title = config_string("CGIT_ROOT_TITLE");
-	ctx.cfg.scan_hidden_path = config_integer("CGIT_SCAN_HIDDEN_PATH");
 	ctx.cfg.script_name = config_string("SCRIPT_NAME");
 	ctx.cfg.section = config_string("CGIT_SECTION");
-	ctx.cfg.section_from_path = config_integer("CGIT_SECTION_FROM_PATH");
-	ctx.cfg.section_sort = config_integer("CGIT_SECTION_SORT");
 	ctx.cfg.snapshots = config_integer("CGIT_SNAPSHOTS");
-	ctx.cfg.strict_export = config_optional_string("CGIT_STRICT_EXPORT");
-	ctx.cfg.summary_branches = config_integer("CGIT_SUMMARY_BRANCHES");
-	ctx.cfg.summary_log = config_integer("CGIT_SUMMARY_LOG");
-	ctx.cfg.summary_tags = config_integer("CGIT_SUMMARY_TAGS");
 	ctx.cfg.virtual_root = ensure_end(config_value("CGIT_VIRTUAL_ROOT"), '/');
 	string_list_init_dup(&ctx.cfg.css);
 	string_list_init_dup(&ctx.cfg.js);
@@ -206,8 +181,30 @@ static void prepare_request(void)
 		ctx.qry.difftype = request_optional_integer("GILTI_QUERY_DIFFTYPE");
 		ctx.qry.has_difftype = 1;
 	}
-	if (ctx.qry.repo)
-		ctx.repo = cgit_get_repoinfo(ctx.qry.repo);
+}
+
+static void prepare_repository(void)
+{
+	char *description = NULL;
+	char *description_path;
+	char *separator;
+	struct passwd *owner;
+	struct stat stat;
+	size_t size;
+
+	ctx.repo = cgit_add_repo(ctx.qry.repo);
+	ctx.repo->path = config_string("GILTI_REPOSITORY_PATH");
+	description_path = fmtalloc("%s/description", ctx.repo->path);
+	if (!read_first_line(description_path, &description, &size))
+		ctx.repo->desc = description;
+	free(description_path);
+	if (!lstat(ctx.repo->path, &stat) && (owner = getpwuid(stat.st_uid))) {
+		ctx.repo->owner = strdup_first_line(owner->pw_gecos && *owner->pw_gecos ?
+			owner->pw_gecos : owner->pw_name);
+		separator = strchr(ctx.repo->owner, ',');
+		if (separator)
+			*separator = '\0';
+	}
 }
 
 static char *guess_defbranch(void)
@@ -222,83 +219,93 @@ static char *guess_defbranch(void)
 	return xstrdup(ref);
 }
 
-/* The caller must free filename and ref after calling this. */
-static inline void parse_readme(const char *readme, char **filename, char **ref, struct cgit_repo *repo)
+struct walk_tree_context {
+	const char *match_path;
+	unsigned int found_path:1;
+};
+
+static int find_path(const struct object_id *oid UNUSED, struct strbuf *base,
+		     const char *pathname, unsigned mode, void *cbdata)
+{
+	struct walk_tree_context *walk_tree_ctx = cbdata;
+
+	if (!S_ISREG(mode))
+		return READ_TREE_RECURSIVE;
+	if (strncmp(base->buf, walk_tree_ctx->match_path, base->len) ||
+	    strcmp(walk_tree_ctx->match_path + base->len, pathname))
+		return READ_TREE_RECURSIVE;
+	walk_tree_ctx->found_path = 1;
+	return 0;
+}
+
+static int ref_path_exists(const char *path, const char *ref)
+{
+	struct object_id oid;
+	unsigned long size;
+	struct pathspec_item path_item = {
+		.match = xstrdup(path),
+		.len = strlen(path)
+	};
+	struct pathspec paths = {
+		.nr = 1,
+		.items = &path_item
+	};
+	struct walk_tree_context walk_tree_ctx = {
+		.match_path = path,
+		.found_path = 0
+	};
+
+	if (!repo_get_oid(the_repository, ref, &oid) &&
+	    odb_read_object_info(the_repository->objects, &oid, &size) == OBJ_COMMIT)
+		read_tree(the_repository,
+			  repo_get_commit_tree(the_repository,
+				lookup_commit_reference(the_repository, &oid)),
+			  &paths, find_path, &walk_tree_ctx);
+	free(path_item.match);
+	return walk_tree_ctx.found_path;
+}
+
+static void parse_readme(const char *readme, char **filename, char **ref)
 {
 	const char *colon;
 
 	*filename = NULL;
 	*ref = NULL;
-
-	if (!readme || !readme[0])
+	if (!readme || !*readme)
 		return;
-
-	/* Check if the readme is tracked in the git repo. */
 	colon = strchr(readme, ':');
-	if (colon && strlen(colon) > 1) {
-		/* If it starts with a colon, we want to use head given
-		 * from query or the default branch */
-		if (colon == readme && ctx.qry.head)
-			*ref = xstrdup(ctx.qry.head);
-		else if (colon == readme && repo->defbranch)
-			*ref = xstrdup(repo->defbranch);
+	if (colon && colon[1]) {
+		if (colon == readme)
+			*ref = xstrdup(ctx.qry.head ? ctx.qry.head : ctx.repo->defbranch);
 		else
 			*ref = xstrndup(readme, colon - readme);
 		readme = colon + 1;
 	}
-
-	/* Prepend repo path to relative readme path unless tracked. */
-	if (!(*ref) && readme[0] != '/')
-		*filename = fmtalloc("%s/%s", repo->path, readme);
-	else
-		*filename = xstrdup(readme);
+	*filename = *ref || readme[0] == '/' ? xstrdup(readme) :
+		fmtalloc("%s/%s", ctx.repo->path, readme);
 }
-static void choose_readme(struct cgit_repo *repo)
+
+static void choose_readme(void)
 {
-	int found;
 	char *filename, *ref;
 	struct string_list_item *entry;
 
-	if (!repo->readme.nr)
-		return;
-
-	found = 0;
-	for_each_string_list_item(entry, &repo->readme) {
-		parse_readme(entry->string, &filename, &ref, repo);
-		if (!filename) {
-			free(filename);
-			free(ref);
-			continue;
-		}
-		if (ref) {
-			if (cgit_ref_path_exists(filename, ref, 1)) {
-				found = 1;
-				break;
-			}
-		}
-		else if (!access(filename, R_OK)) {
-			found = 1;
-			break;
+	for_each_string_list_item(entry, &ctx.repo->readme) {
+		parse_readme(entry->string, &filename, &ref);
+		if ((ref && ref_path_exists(filename, ref)) ||
+		    (!ref && !access(filename, R_OK))) {
+			ctx.repo->readme.strdup_strings = 1;
+			string_list_clear(&ctx.repo->readme, 0);
+			ctx.repo->readme.strdup_strings = 0;
+			string_list_append(&ctx.repo->readme, filename)->util = ref;
+			return;
 		}
 		free(filename);
 		free(ref);
 	}
-	repo->readme.strdup_strings = 1;
-	string_list_clear(&repo->readme, 0);
-	repo->readme.strdup_strings = 0;
-	if (found)
-		string_list_append(&repo->readme, filename)->util = ref;
-}
-
-static void print_no_repo_clone_urls(const char *url)
-{
-        html("<tr><td><a rel='vcs-git' href='");
-        html_attr(url);
-        html("' title='");
-        html_attr(ctx.repo->name);
-        html(" Git repository'>");
-        html_txt(url);
-        html("</a></td></tr>\n");
+	ctx.repo->readme.strdup_strings = 1;
+	string_list_clear(&ctx.repo->readme, 0);
+	ctx.repo->readme.strdup_strings = 0;
 }
 
 static void prepare_repo_env(int *nongit)
@@ -341,25 +348,13 @@ static int prepare_repo_cmd(int nongit)
 		ctx.qry.head = xstrdup("HEAD");
 
 	if (repo_get_oid(the_repository, ctx.qry.head, &oid)) {
-		if (strcmp(ctx.qry.page, "summary")) {
-			cgit_print_error_page(404, "Not found",
-					"Invalid revision: %s", ctx.qry.head);
-			return 1;
-		}
-		cgit_print_http_headers();
-		cgit_print_docstart();
-		cgit_print_pageheader();
-		cgit_print_error("Repository seems to be empty");
-		html("<table class='list'><tr class='nohover'><td>&nbsp;</td></tr><tr class='nohover'><th class='left'>Clone</th></tr>\n");
-		cgit_prepare_repo_env(ctx.repo);
-		cgit_add_clone_urls(print_no_repo_clone_urls);
-		html("</table>\n");
-		cgit_print_docend();
+		cgit_print_error_page(404, "Not found",
+				"Invalid revision: %s", ctx.qry.head);
 		return 1;
 	}
 	string_list_sort(&ctx.repo->submodules);
 	cgit_prepare_repo_env(ctx.repo);
-	choose_readme(ctx.repo);
+	choose_readme();
 	return 0;
 }
 
@@ -378,12 +373,6 @@ static void process_request(void)
 
 	cmd = cgit_get_cmd();
 	if (!cmd) {
-		ctx.page.title = "cgit error";
-		cgit_print_error_page(404, "Not found", "Invalid request");
-		return;
-	}
-
-	if (!ctx.cfg.enable_http_clone && cmd->is_clone) {
 		ctx.page.title = "cgit error";
 		cgit_print_error_page(404, "Not found", "Invalid request");
 		return;
@@ -418,12 +407,9 @@ int cmd_main(int argc UNUSED, const char **argv UNUSED)
 	set_die_routine(cgit_die_routine);
 
 	prepare_context();
-	cgit_repolist.length = 0;
-	cgit_repolist.count = 0;
-	cgit_repolist.repos = NULL;
-
-	scan_tree(config_value("CGIT_SCAN_PATH"));
 	prepare_request();
+	if (ctx.qry.repo)
+		prepare_repository();
 	process_request();
 	return 0;
 }

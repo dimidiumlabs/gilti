@@ -19,12 +19,17 @@ LABEL org.opencontainers.image.title="Gilti" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 
 RUN apk add --no-cache \
+      bzip2=1.0.8-r6 \
       git=2.49.1-r0 \
+      git-daemon=2.49.1-r0 \
       libgcc=14.2.0-r6 \
+      lzip=1.25-r0 \
       openssh-keygen=10.0_p1-r10 \
       openssh-server=10.0_p1-r10 \
       su-exec=0.2-r3 \
-      tini=0.19.0-r3 && \
+      tini=0.19.0-r3 \
+      xz=5.8.1-r0 \
+      zstd=1.5.7-r0 && \
     addgroup -S -g 10000 git && \
     install -d -m 0755 -o root -g root /var/lib/gilti && \
     adduser -S -D -u 10000 -G git -h /var/lib/gilti/git -s /bin/sh git && \

@@ -14,7 +14,6 @@
 
 #include "cgit.h"
 
-struct cgit_repolist cgit_repolist;
 struct cgit_context ctx;
 
 int chk_zero(int result, char *msg)
@@ -41,20 +40,8 @@ int chk_non_negative(int result, char *msg)
 char *cgit_default_repo_desc;
 struct cgit_repo *cgit_add_repo(const char *url)
 {
-	struct cgit_repo *ret;
+	struct cgit_repo *ret = xcalloc(1, sizeof(*ret));
 
-	if (++cgit_repolist.count > cgit_repolist.length) {
-		if (cgit_repolist.length == 0)
-			cgit_repolist.length = 8;
-		else
-			cgit_repolist.length *= 2;
-		cgit_repolist.repos = xrealloc(cgit_repolist.repos,
-					       cgit_repolist.length *
-					       sizeof(struct cgit_repo));
-	}
-
-	ret = &cgit_repolist.repos[cgit_repolist.count-1];
-	memset(ret, 0, sizeof(struct cgit_repo));
 	ret->url = trim_end(url, '/');
 	*strchrnul(ret->url, '\n') = '\0';
 	ret->name = ret->url;
@@ -65,16 +52,13 @@ struct cgit_repo *cgit_add_repo(const char *url)
 	ret->homepage = NULL;
 	ret->section = ctx.cfg.section;
 	ret->snapshots = ctx.cfg.snapshots;
-	ret->enable_blame = ctx.cfg.enable_blame;
 	ret->enable_commit_graph = ctx.cfg.enable_commit_graph;
 	ret->enable_follow_links = ctx.cfg.enable_follow_links;
 	ret->enable_log_filecount = ctx.cfg.enable_log_filecount;
 	ret->enable_log_linecount = ctx.cfg.enable_log_linecount;
 	ret->enable_remote_branches = ctx.cfg.enable_remote_branches;
 	ret->enable_subject_links = ctx.cfg.enable_subject_links;
-	ret->enable_html_serving = ctx.cfg.enable_html_serving;
 	ret->max_stats = ctx.cfg.max_stats;
-	ret->branch_sort = ctx.cfg.branch_sort;
 	ret->commit_sort = ctx.cfg.commit_sort;
 	ret->module_link = ctx.cfg.module_link;
 	ret->readme = ctx.cfg.readme;
@@ -83,21 +67,6 @@ struct cgit_repo *cgit_add_repo(const char *url)
 	ret->submodules.strdup_strings = 1;
 	ret->hide = ret->ignore = 0;
 	return ret;
-}
-
-struct cgit_repo *cgit_get_repoinfo(const char *url)
-{
-	int i;
-	struct cgit_repo *repo;
-
-	for (i = 0; i < cgit_repolist.count; i++) {
-		repo = &cgit_repolist.repos[i];
-		if (repo->ignore)
-			continue;
-		if (!strcmp(repo->url, url))
-			return repo;
-	}
-	return NULL;
 }
 
 void cgit_free_commitinfo(struct commitinfo *info)

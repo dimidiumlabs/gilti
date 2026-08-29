@@ -19,7 +19,6 @@ extern char *cgit_revurl(const char *reponame, const char *revision);
 extern char *cgit_treeurl(const char *reponame, const char *revision,
 			  const char *path, const char *fragment);
 
-extern void cgit_add_clone_urls(void (*fn)(const char *));
 
 extern void cgit_index_link(const char *name, const char *title,
 			    const char *class, const char *pattern, const char *sort, int ofs, int always_root);
@@ -87,6 +86,7 @@ extern void cgit_compose_snapshot_prefix(struct strbuf *filename,
 extern void cgit_print_snapshot_links(const struct cgit_repo *repo,
 				      const char *ref, const char *separator);
 extern const char *cgit_snapshot_prefix(const struct cgit_repo *repo);
+extern void cgit_add_clone_urls(void (*fn)(const char *));
 extern void cgit_add_hidden_formfields(int incl_head, int incl_search,
 				       const char *page);
 
