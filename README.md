@@ -67,7 +67,7 @@ ssh:
 helm upgrade --install gilti ./charts/gilti \
   --namespace gilti --create-namespace \
   --values values.yaml \
-  --set web.clonePrefix='ssh://git@vcs.dimidiumlabs.io/'
+  --set web.clonePrefix='ssh://git@git.dimidiumlabs.io/'
 ```
 
 See [`charts/gilti/README.md`](charts/gilti/README.md) for persistence, routing,

@@ -7,5 +7,5 @@ version: 0.1.0
 appVersion: 0.1.0
 
 name: gilti
-home: https://github.com/dimidiumlabs/gilti
+home: https://git.dimidiumlabs.io/gilti
 description: Boxed tiny Git server powered by Rust and OpenSSH

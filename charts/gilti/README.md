@@ -54,10 +54,10 @@ ssh:
   authorizedKeys:
     - ssh-ed25519 AAAA... operator@example
 web:
-  clonePrefix: ssh://git@vcs.dimidiumlabs.io/
+  clonePrefix: ssh://git@git.dimidiumlabs.io/
 httpRoute:
   enabled: true
-  hostnames: [vcs.dimidiumlabs.io]
+  hostnames: [git.dimidiumlabs.io]
   parentRefs:
     - name: public
       namespace: network

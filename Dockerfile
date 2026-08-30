@@ -13,7 +13,7 @@ ARG REVISION=unknown
 
 LABEL org.opencontainers.image.title="Gilti" \
       org.opencontainers.image.description="Tiny Git server in a box" \
-      org.opencontainers.image.source="https://github.com/dimidiumlabs/gilti" \
+      org.opencontainers.image.source="https://git.dimidiumlabs.io/gilti" \
       org.opencontainers.image.version="$VERSION" \
       org.opencontainers.image.revision="$REVISION" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"

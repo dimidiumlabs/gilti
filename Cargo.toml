@@ -12,8 +12,8 @@ rust-version = "1.97"
 version = "0.1.0"
 license = "AGPL-3.0-or-later"
 authors = ["Nikolay Govorov <me@govorov.online>"]
-homepage = "https://github.com/dimidiumlabs/gilti"
-repository = "https://github.com/dimidiumlabs/gilti"
+homepage = "https://git.dimidiumlabs.io/gilti"
+repository = "https://git.dimidiumlabs.io/gilti"
 
 [workspace.dependencies]
 axum = { version = "0.8.4", default-features = false, features = ["http1", "tokio"] }
