@@ -17,8 +17,12 @@ concurrency:
   group: gilti-build-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_TERM_COLOR: always
+  RELEASE_TAG: nightly
+
 jobs:
-  check:
+  lint:
     name: Static checks
     runs-on: ubuntu-latest
     steps:
@@ -33,15 +37,16 @@ jobs:
         run: mise bootstrap --locked --yes --update
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
-      - name: Check formatting
+      - name: formatting
         run: cargo fmt --all --check
 
-      - run: shellcheck scripts/*.sh tests/*.sh
+      - name: shellcheck
+        run: shellcheck scripts/*.sh tests/*.sh
 
   build:
     name: Build (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
-    needs: [check]
+    needs: [lint]
     strategy:
       fail-fast: false
       matrix:
@@ -62,7 +67,7 @@ jobs:
         run: mise bootstrap --locked --yes --update
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
 
-      - run: cargo clippy --locked --all-targets --all-features --release -- -D warnings
+      - run: cargo clippy --workspace --locked --all-targets --all-features --release -- -D warnings
       - run: cargo test --all-features --release --locked
       - run: tests/chart.sh
 

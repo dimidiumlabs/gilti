@@ -3,7 +3,7 @@
 
 [package]
 name = "gilti"
-description = "Gilti web-server and daemon"
+description = "Gilti daemon"
 version.workspace = true
 
 authors.workspace = true
