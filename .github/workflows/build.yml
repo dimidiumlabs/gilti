@@ -71,27 +71,12 @@ jobs:
       - run: cargo test --all-features --release --locked
       - run: tests/chart.sh
 
+      # Build on the native GitHub runner so rust-cache can reuse the release
+      # dependencies already compiled by the checks above.  Do not compile in a
+      # disposable Alpine target directory: the UI toolchain is expensive and
+      # that directory is deliberately removed after every invocation.
       - name: Build container artifacts
-        env:
-          RUST_IMAGE: docker.io/library/rust:1.97.1-alpine3.22@sha256:df4efa4e0cdfb5245fa06e3f431387b2bcc96782ce5681b7fb6b0297d745bc29
-        run: |
-          docker run --rm \
-            --volume "$PWD:/src" \
-            --workdir /src \
-            --env "HOST_UID=$(id -u)" \
-            --env "HOST_GID=$(id -g)" \
-            "$RUST_IMAGE" sh -euxc '
-              rustc --version | grep -qx "rustc 1.97.1 (8bab26f4f 2026-07-14)"
-              cargo --version | grep -q "^cargo 1.97.1 "
-              apk add --no-cache \
-                build-base=0.5-r3 \
-                cmake \
-                python3 \
-                zlib-dev=1.3.2-r0 \
-                zlib-static=1.3.2-r0
-              scripts/build-artifacts.sh "${{ matrix.arch }}"
-              chown -R "$HOST_UID:$HOST_GID" .container
-            '
+        run: scripts/build-artifacts.sh "${{ matrix.arch }}"
 
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:

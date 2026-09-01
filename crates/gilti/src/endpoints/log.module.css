@@ -1,108 +1,29 @@
 /* SPDX-FileCopyrightText: 2026 Nikolay Govorov
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 
-.right {
-    text-align: right;
-}
-
-.txt {
-    width: 100%;
-    margin: 2px 0 0;
-}
-
 .path {
     margin: 0;
-    padding: 5px 2em 2px;
-    color: #000;
-    background: #eee;
-}
-
-.left {
-    text-align: left;
-}
-
-.commitgraph {
-    font-family: monospace;
-    white-space: pre;
-}
-
-.logsubject {
-    font-family: monospace;
-    font-weight: bold;
-}
-
-.logmsg {
-    font-family: monospace;
-    white-space: pre;
-    padding: 0 .5em;
-}
-
-.column1 {
-    color: #a00;
-}
-
-.column2 {
-    color: #0a0;
-}
-
-.column3 {
-    color: #aa0;
-}
-
-.column4 {
-    color: #00a;
-}
-
-.column5 {
-    color: #a0a;
-}
-
-.column6 {
-    color: #0aa;
+    padding: 0 2em;
+    color: var(--color-neutral-900);
+    background: var(--color-neutral-100);
 }
 
 .pager {
     list-style: none;
     text-align: center;
-    margin: 1em 0 0;
+    margin: 0;
     padding: 0;
 }
 
 .pager li {
     display: inline-block;
-    margin: .25em .5em;
+    margin: 0 .5em;
+}
+
+.pager li::before {
+    content: none;
 }
 
 .pager a {
-    color: #777;
-}
-
-.decoration {
-    font-size: 75%;
-}
-
-.branch-deco,
-.tag-deco {
-    color: #000;
-    margin: 0 .5em;
-    padding: 0 .25em;
-    border-radius: 2px;
-}
-
-.branch-deco {
-    background: #8f8;
-    border: solid 1px #070;
-}
-
-.tag-deco {
-    background: #ff8;
-    border: solid 1px #770;
-}
-
-.insertions {
-    color: #080;
-}
-
-.deletions {
-    color: #800;
+    color: var(--color-neutral-600);
 }

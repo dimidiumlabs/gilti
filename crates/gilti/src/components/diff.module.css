@@ -1,32 +1,13 @@
 /* SPDX-FileCopyrightText: 2026 Nikolay Govorov
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 
-.gilti-panel {
-    float: right;
-    margin-top: 1.5em;
-}
-
-.gilti-panel table,
 .diffstat {
-    border: solid 1px #aaa;
-    background: #eee;
-}
-
-.gilti-panel td {
-    padding: .25em .5em;
-}
-
-.label {
-    padding-right: .5em;
-}
-
-.ctrl {
-    padding-left: .5em;
+    border: solid 1px var(--color-neutral-400);
+    background: var(--color-neutral-100);
 }
 
 .diffstat-header {
     font-weight: bold;
-    padding-top: 1.5em;
 }
 
 .diffstat th {
@@ -47,19 +28,19 @@
 
 .modechange {
     padding-left: 1em;
-    color: red;
+    color: var(--color-red-500);
 }
 
 .add a {
-    color: green;
+    color: var(--color-green-600);
 }
 
 .del a {
-    color: red;
+    color: var(--color-red-500);
 }
 
 .upd a {
-    color: blue;
+    color: var(--color-blue-500);
 }
 
 .right {
@@ -72,8 +53,7 @@
 }
 
 .diffstat-summary {
-    color: #888;
-    padding-top: .5em;
+    color: var(--color-neutral-500);
 }
 
 .ssdiff {
@@ -84,64 +64,46 @@
     font: 75% monospace;
     white-space: pre;
     padding: 1px 4px;
-    border-inline: solid 1px #aaa;
+    border-inline: solid 1px var(--color-neutral-400);
 }
 
 .ssdiff .add {
-    color: black;
-    background: #cfc;
+    color: var(--color-neutral-900);
+    background: var(--color-green-100);
     min-width: 50%;
 }
 
 .ssdiff .del {
-    color: black;
-    background: #fcc;
+    color: var(--color-neutral-900);
+    background: var(--color-red-100);
     min-width: 50%;
 }
 
 .ssdiff .lineno {
-    color: black;
-    background: #eee;
+    color: var(--color-neutral-900);
+    background: var(--color-neutral-100);
     text-align: right;
     width: 3em;
     min-width: 3em;
 }
 
 .ssdiff .hunk {
-    color: black;
-    background: #ccf;
-    border-block: solid 1px #aaa;
-}
-
-.diff {
-    width: 100%;
-}
-
-.diff td {
-    font-family: monospace;
-    white-space: pre;
+    color: var(--color-neutral-900);
+    background: var(--color-blue-100);
+    border-block: solid 1px var(--color-neutral-400);
 }
 
 .head {
     font-weight: bold;
-    margin-top: 1em;
-    color: black;
+    color: var(--color-neutral-900);
 }
 
 .hunk {
-    color: #009;
-}
-
-.diff .add {
-    color: green;
-}
-
-.diff .del {
-    color: red;
+    color: var(--color-blue-800);
 }
 
 .ctx {
-    color: black;
+    color: var(--color-neutral-900);
 }
 
 .cpy,
@@ -149,5 +111,5 @@
 .typ,
 .stg,
 .unk {
-    color: black;
+    color: var(--color-neutral-900);
 }

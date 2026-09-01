@@ -3,9 +3,9 @@
 
 .path {
     margin: 0;
-    padding: 5px 2em 2px;
-    color: #000;
-    background: #eee;
+    padding: 0 2em;
+    color: var(--color-neutral-900);
+    background: var(--color-neutral-100);
 }
 
 .left {
@@ -27,7 +27,7 @@
 
 .ls-dir {
     font-weight: bold;
-    color: #00f;
+    color: var(--color-blue-500);
 }
 
 .ls-size,
@@ -39,69 +39,20 @@
     text-align: right;
 }
 
-.button {
-    font-size: 80%;
-    padding: 0 .5em;
-}
-
-.blob {
-    margin-top: .5em;
-    border-top: solid 1px black;
-}
-
-.blob td {
-    margin: 0;
-    padding: 0 0 0 .5em;
-    vertical-align: top;
-    color: black;
-}
-
-.linenumbers {
-    margin: 0;
-    padding: 0 .5em;
-    vertical-align: top;
-    text-align: right;
-    border-right: 1px solid gray;
-}
-
-.blob pre {
-    margin: 0;
-    padding: 0;
-}
-
-.linenumbers a {
-    color: gray;
-    text-decoration: none;
-}
-
-.linenumbers a:hover {
-    color: black;
-}
-
-.linenumbers a:target:before {
-    color: red;
-    content: "\2BA9";
-}
-
 .bin-blob {
-    margin-top: .5em;
-    border: solid 1px black;
+    border: solid 1px var(--color-neutral-900);
 }
 
 .bin-blob th {
     font-family: monospace;
     white-space: pre;
-    border: solid 1px #777;
+    border: solid 1px var(--color-neutral-600);
     padding: .5em 1em;
 }
 
 .bin-blob td {
     font-family: monospace;
     white-space: pre;
-    border-left: solid 1px #777;
+    border-left: solid 1px var(--color-neutral-600);
     padding: 0 1em;
-}
-
-.lines {
-    vertical-align: top;
 }

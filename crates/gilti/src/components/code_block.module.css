@@ -1,0 +1,76 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.root {
+    width: 100%;
+    border-top: solid 1px var(--color-neutral-900);
+}
+
+.root td {
+    vertical-align: top;
+}
+
+.annotation,
+.line-number {
+    width: 1%;
+    padding: 0 .5em;
+    text-align: right;
+    white-space: nowrap;
+    color: var(--color-neutral-550);
+    border-right: solid 1px var(--color-neutral-550);
+    user-select: none;
+}
+
+.annotation {
+    padding: 0 .5em 0 0;
+    color: var(--color-neutral-900);
+    border-right: solid 1px var(--color-neutral-400);
+}
+
+.line-number a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.code {
+    width: 100%;
+    padding: 0 0 0 .5em;
+}
+
+.code pre {
+    margin: 0;
+    padding: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.code pre code {
+    padding: 0;
+}
+
+.root tr:target {
+    background: var(--color-yellow-200);
+}
+
+.context {
+    color: var(--color-neutral-900);
+}
+
+.addition {
+    color: var(--color-green-600);
+    background: var(--color-green-100);
+}
+
+.deletion {
+    color: var(--color-red-500);
+    background: var(--color-red-100);
+}
+
+.hunk {
+    color: var(--color-blue-800);
+    background: var(--color-blue-100);
+}
+
+.alternate {
+    background: var(--color-neutral-100);
+}

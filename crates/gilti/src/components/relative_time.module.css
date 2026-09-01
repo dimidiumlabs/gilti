@@ -2,26 +2,26 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 
 .root[data-unit="minutes"] {
-    color: #080;
+    color: var(--color-green-550);
     font-weight: bold;
 }
 
 .root[data-unit="hours"] {
-    color: #080;
+    color: var(--color-green-550);
 }
 
 .root[data-unit="days"] {
-    color: #040;
+    color: var(--color-green-900);
 }
 
 .root[data-unit="weeks"] {
-    color: #444;
+    color: var(--color-neutral-700);
 }
 
 .root[data-unit="months"] {
-    color: #888;
+    color: var(--color-neutral-500);
 }
 
 .root[data-unit="years"] {
-    color: #bbb;
+    color: var(--color-neutral-300);
 }

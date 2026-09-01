@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 
 .subject {
-    margin: 1.5em 0 .5em;
+    margin: 1em 0 0.5em;
     font-size: 125%;
     font-weight: bold;
 }
@@ -10,10 +10,6 @@
 .message {
     white-space: pre;
     font-family: monospace;
-}
-
-.info {
-    margin-top: 1.5em;
 }
 
 .oid {

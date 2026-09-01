@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Nikolay Govorov
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use maud::{DOCTYPE, Render, html};
+use maud::{Render, html};
 
 pub async fn serve(
     context: &super::shared::Context,
@@ -81,36 +81,29 @@ fn raw(model: gilti_git::tree::Tree, method: &axum::http::Method) -> axum::respo
             } else {
                 format!("/{current}/")
             };
-            let document = html! {
-                (DOCTYPE)
-                html { head { title { (&title) } } body {
-                    h2 { (&title) }
-                    ul {
-                        @if let Some((parent, _)) = current.rsplit_once('/') {
-                            li { a href=(format!("{repo}/+/{revision}/+/tree/{}?format=raw", super::shared::encode_path(parent))) { "../" } }
-                        } @else if !current.is_empty() {
-                            li { a href=(format!("{repo}/+/{revision}/+/tree?format=raw")) { "../" } }
-                        }
-                        @for entry in entries {
-                            @let path = super::shared::encode_path(&entry.path);
-                            li {
-                                @if entry.kind == gilti_git::tree::Kind::Submodule {
-                                    (&entry.name) " @ " (&entry.oid)
-                                } @else {
-                                    a href=(format!("{repo}/+/{revision}/+/tree/{path}?format=raw")) { (&entry.name) @if entry.kind == gilti_git::tree::Kind::Tree { "/" } }
-                                }
+            let content = html! {
+                h2 { (&title) }
+                ul {
+                    @if let Some((parent, _)) = current.rsplit_once('/') {
+                        li { a href=(format!("{repo}/+/{revision}/+/tree/{}?format=raw", super::shared::encode_path(parent))) { "../" } }
+                    } @else if !current.is_empty() {
+                        li { a href=(format!("{repo}/+/{revision}/+/tree?format=raw")) { "../" } }
+                    }
+                    @for entry in entries {
+                        @let path = super::shared::encode_path(&entry.path);
+                        li {
+                            @if entry.kind == gilti_git::tree::Kind::Submodule {
+                                (&entry.name) " @ " (&entry.oid)
+                            } @else {
+                                a href=(format!("{repo}/+/{revision}/+/tree/{path}?format=raw")) { (&entry.name) @if entry.kind == gilti_git::tree::Kind::Tree { "/" } }
                             }
                         }
                     }
-                } }
-            }
-            .into_string();
-            let length = document.len();
-            let body = if method == axum::http::Method::HEAD {
-                axum::body::Body::empty()
-            } else {
-                axum::body::Body::from(document)
+                }
             };
+            let document = crate::components::document::render(&title, content).into_string();
+            let length = document.len();
+            let body = axum::body::Body::from(document);
             axum::response::Response::builder()
                 .status(axum::http::StatusCode::OK)
                 .header(axum::http::header::CONTENT_TYPE, "text/html; charset=UTF-8")
@@ -145,7 +138,10 @@ fn content_disposition(path: &str) -> String {
 use maud::Markup;
 
 use crate::{
-    components::table::{DataTable, ListRow, RowStyle, TableFrame},
+    components::{
+        code_block::{CodeBlock, LineNumbers, text_lines},
+        table::{DataTable, ListRow, RowStyle, TableFrame},
+    },
     styles::classes::tree,
 };
 
@@ -179,7 +175,7 @@ fn render_content(model: &gilti_git::tree::Tree) -> Markup {
                     @for entry in entries {
                         @let path = crate::endpoints::shared::encode_path(&entry.path);
                         tr {
-                            td class=(tree::LS_MODE) { (filemode(entry.mode)) }
+                            td class=(tree::LS_MODE) { (crate::components::file_mode(entry.mode)) }
                             td {
                                 @match entry.kind {
                                     gilti_git::tree::Kind::Submodule => {
@@ -195,13 +191,16 @@ fn render_content(model: &gilti_git::tree::Tree) -> Markup {
                             }
                             td class=(tree::LS_SIZE) { (entry.size) }
                             td {
-                                a class=(tree::BUTTON) href=(format!("{repo}/+/{revision}/+/log/{path}")) { "log" }
-                                a class=(tree::BUTTON) href=(format!("{repo}/+/stats")) { "stats" }
+                                a href=(format!("{repo}/+/{revision}/+/log/{path}")) { "log" }
+                                ", "
+                                a href=(format!("{repo}/+/stats")) { "stats" }
                                 @if entry.kind != gilti_git::tree::Kind::Submodule {
-                                    a class=(tree::BUTTON) href=(format!("{prefix}/{path}?format=raw")) { "plain" }
+                                    ", "
+                                    a href=(format!("{prefix}/{path}?format=raw")) { "plain" }
                                 }
                                 @if entry.kind == gilti_git::tree::Kind::Blob && entry.symlink_target.is_none() {
-                                    a class=(tree::BUTTON) href=(format!("{repo}/+/{revision}/+/blame/{path}")) { "blame" }
+                                    ", "
+                                    a href=(format!("{repo}/+/{revision}/+/blame/{path}")) { "blame" }
                                 }
                             }
                         }
@@ -217,30 +216,6 @@ fn render_content(model: &gilti_git::tree::Tree) -> Markup {
             }
         }
     }
-}
-
-pub(super) fn filemode(mode: u32) -> String {
-    let mut value = String::with_capacity(10);
-    value.push(match mode {
-        0o040000 => 'd',
-        0o120000 => 'l',
-        0o160000 => 'm',
-        _ => '-',
-    });
-    for bit in [
-        0o400, 0o200, 0o100, 0o040, 0o020, 0o010, 0o004, 0o002, 0o001,
-    ] {
-        value.push(if mode & bit == 0 {
-            '-'
-        } else {
-            match bit {
-                0o400 | 0o040 | 0o004 => 'r',
-                0o200 | 0o020 | 0o002 => 'w',
-                _ => 'x',
-            }
-        });
-    }
-    value
 }
 
 fn entry_class(entry: &gilti_git::tree::Entry) -> String {
@@ -281,18 +256,13 @@ fn breadcrumbs(prefix: &str, path: &str) -> Markup {
 
 fn text_blob(bytes: &[u8]) -> Markup {
     let text = String::from_utf8_lossy(bytes);
-    let lines = if bytes.is_empty() {
-        0
-    } else {
-        bytes.iter().filter(|byte| **byte == b'\n').count()
-            + usize::from(bytes.last() != Some(&b'\n'))
-    };
-    html! { table summary="blob content" class=(tree::BLOB) { tr {
-        td class=(tree::LINENUMBERS) { pre {
-            @for line in 1..=lines { a id=(format!("n{line}")) href=(format!("#n{line}")) { (line) } "\n" }
-        } }
-        td class=(tree::LINES) { pre { code { (text) } } }
-    } } }
+    CodeBlock {
+        summary: "blob content",
+        numbers: LineNumbers::Single,
+        annotations: false,
+        lines: text_lines(&text),
+    }
+    .render()
 }
 
 fn binary_blob(bytes: &[u8]) -> Markup {

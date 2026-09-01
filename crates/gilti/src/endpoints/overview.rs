@@ -67,103 +67,54 @@ use maud::{Markup, html};
 
 use crate::{
     components::{
-        relative_time::RelativeTime,
-        table::{DataTable, ListRow, RowStyle, TableFrame},
+        log_table::LogTable,
+        refs_table::{BranchesTable, TagsTable},
+        table::TableGrid,
     },
     styles::classes::overview,
 };
 
 pub fn content(model: &gilti_git::overview::Overview, clone_url: &str) -> Markup {
-    let repo = crate::endpoints::shared::repository_url(&model.repository.name);
+    let repository_url = crate::urls::repository(&model.repository.name);
     html! { div {
         @if model.empty {
             div class=(overview::ERROR) { "Repository seems to be empty" }
         }
-        (DataTable { summary: Some("repository info"), frame: TableFrame::List { nowrap: false }, content: html! {
-            @if !model.empty {
-                (ListRow { style: RowStyle::Static, content: html! {
-                    th class=(overview::LEFT) { "Branch" }
-                    th class=(overview::LEFT) { "Commit message" }
-                    th class=(overview::LEFT) { "Author" }
-                    th class=(overview::LEFT) colspan="2" { "Age" }
-                } })
-                @for branch in &model.branches {
-                    @let revision = crate::endpoints::shared::encode_path(&branch.reference);
-                    tr {
-                        td { a href=(format!("{repo}/+/{revision}/+/log")) { (&branch.name) } }
-                        td { a href=(format!("{repo}/+/{revision}")) { (&branch.subject) } }
-                        td { (&branch.author) }
-                        td colspan="2" { (RelativeTime { timestamp: branch.timestamp }) }
-                    }
-                }
-                @if !model.tags.is_empty() {
-                    (ListRow { style: RowStyle::Static, content: html! { td colspan="5" { " " } } })
-                    (ListRow { style: RowStyle::Static, content: html! {
-                        th class=(overview::LEFT) { "Tag" }
-                        th class=(overview::LEFT) { "Download" }
-                        th class=(overview::LEFT) { "Author" }
-                        th class=(overview::LEFT) colspan="2" { "Age" }
-                    } })
-                    @for tag in &model.tags {
-                        @let revision = crate::endpoints::shared::encode_path(&tag.reference);
-                        tr {
-                            td { a href=(format!("{repo}/+/{revision}")) { (&tag.name) } }
-                            td {
-                                @if tag.downloadable {
-                                    @for (index, format) in ["tar", "tar.gz", "tar.bz2", "tar.lz", "tar.xz", "tar.zst", "zip"].iter().enumerate() {
-                                        @if index > 0 { "  " }
-                                        (archive_link(&repo, &revision, format))
-                                    }
-                                } @else {
-                                    a href=(format!("{repo}/+/object/{}", tag.target)) { (&tag.target) }
-                                }
-                            }
-                            td { (&tag.author) }
-                            td colspan="2" { (RelativeTime { timestamp: tag.timestamp }) }
-                        }
-                    }
-                }
-                @if !model.commits.is_empty() {
-                    (ListRow { style: RowStyle::Static, content: html! { td colspan="5" { " " } } })
-                    (ListRow { style: RowStyle::Static, content: html! {
-                        th class=(overview::LEFT) { "Age" }
-                        th class=(overview::LEFT) { "Commit message" }
-                        th class=(overview::LEFT) { "Author" }
-                        th class=(overview::LEFT) { "Files" }
-                        th class=(overview::LEFT) { "Lines" }
-                    } })
-                    @for commit in &model.commits {
-                        tr {
-                            td { (RelativeTime { timestamp: commit.timestamp }) }
-                            td {
-                                a href=(format!("{repo}/+/{}", commit.oid)) { (&commit.subject) }
-                                @if !commit.decorations.is_empty() { span class=(overview::DECORATION) {
-                                    @for decoration in &commit.decorations {
-                                        @if let Some(reference) = &decoration.reference {
-                                            @let revision = crate::endpoints::shared::encode_path(reference);
-                                            a class=(if decoration.tag { overview::TAG_ANNOTATED_DECO } else { overview::BRANCH_DECO }) href=(if decoration.tag { format!("{repo}/+/{revision}") } else { format!("{repo}/+/{revision}/+/log") }) { (&decoration.label) }
-                                        } @else {
-                                            a class=(overview::DECO) href=(format!("{repo}/+/{}", commit.oid)) { (&decoration.label) }
-                                        }
-                                    }
-                                } }
-                            }
-                            td { (&commit.author) }
-                            td { (commit.files) }
-                            td { span class=(overview::DELETIONS) { "-" (commit.deletions) } "/" span class=(overview::INSERTIONS) { "+" (commit.insertions) } }
-                        }
-                    }
-                }
-            }
-            (ListRow { style: RowStyle::Static, content: html! { td colspan="5" { " " } } })
-            (ListRow { style: RowStyle::Static, content: html! { th class=(overview::LEFT) colspan="5" { "Clone" } } })
-            tr { td colspan="5" { a rel="vcs-git" href=(clone_url) { (clone_url) } } }
-        } }.render())
-    } }
-}
 
-fn archive_link(repository: &str, revision: &str, format: &str) -> Markup {
-    html! { a href=(format!("{repository}/+/{revision}/+/archive?format={format}")) { (format) } }
+        @if !model.tags.is_empty() || !model.branches.is_empty() || !model.commits.is_empty() {
+            (TableGrid { content: html! {
+                @if !model.tags.is_empty() {
+                    (TagsTable {
+                        repository_url: &repository_url,
+                        tags: &model.tags,
+                        nowrap: false,
+                    })
+                }
+
+                @if !model.branches.is_empty() {
+                    (BranchesTable {
+                        repository_url: &repository_url,
+                        branches: &model.branches,
+                        nowrap: false,
+                    })
+                }
+
+                @if !model.commits.is_empty() {
+                    (LogTable::Summary {
+                        repository_url: &repository_url,
+                        commits: &model.commits,
+                    })
+                }
+            } })
+        }
+
+        section class=(overview::CLONE) aria-labelledby="clone-heading" {
+            h2 id="clone-heading" class=(overview::CLONE_TITLE) { "Clone" }
+            ul class=(overview::CLONE_LIST) {
+                li { a rel="vcs-git" href=(clone_url) { (clone_url) } }
+            }
+        }
+    } }
 }
 // SPDX-FileCopyrightText: 2026 Nikolay Govorov
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -172,28 +123,33 @@ fn archive_link(repository: &str, revision: &str, format: &str) -> Markup {
 
 use maud::Render;
 
-use crate::components::{
-    header::{Header, LinkLabel},
-    layout::ContentLayout,
-    tabs::{Tab, Tabs},
-};
+use crate::components::layout::{Layout, NavigationLink, NestedLink};
 
 pub(crate) struct RepositoryPage<'a> {
     pub root_title: &'a str,
     pub repository_url: &'a str,
     pub repository_name: &'a str,
     pub description: &'a str,
-    pub tabs: Vec<Tab<'a>>,
+    pub navigation_links: Vec<NavigationLink<'a>>,
+    pub navigation_search: Option<Markup>,
+    pub sidebar: Option<Markup>,
     pub content: Markup,
 }
 
 impl Render for RepositoryPage<'_> {
     fn render(&self) -> Markup {
-        html! { div {
-            (Header { home_url: "/", logo_url: "/-/assets/gilti.png", root_title: self.root_title,
-                repository: Some(LinkLabel { url: self.repository_url, label: self.repository_name }), description: self.description })
-            (Tabs { items: self.tabs.clone(), trailing: None })
-            (ContentLayout { content: self.content.clone(), footer: html! { "generated by Gilti" } })
-        } }
+        Layout {
+            root_title: self.root_title,
+            description: self.description,
+            nested_links: vec![NestedLink {
+                url: self.repository_url,
+                label: self.repository_name,
+            }],
+            navigation_links: self.navigation_links.clone(),
+            navigation_search: self.navigation_search.clone(),
+            sidebar: self.sidebar.clone(),
+            content: self.content.clone(),
+        }
+        .render()
     }
 }

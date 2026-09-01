@@ -41,7 +41,13 @@ pub async fn serve(
 
 use maud::{Markup, Render, html};
 
-use crate::{components::relative_time::RelativeTime, styles::classes::blame};
+use crate::{
+    components::{
+        code_block::{CodeBlock, CodeLine, LineNumbers, LineStyle},
+        relative_time::RelativeTime,
+    },
+    styles::classes::blame,
+};
 
 /// Presentation page for annotated source lines.
 struct BlamePage<'a> {
@@ -73,40 +79,58 @@ fn render_content(model: &gilti_git::blame::Blame) -> Markup {
 }
 
 fn blame_table(model: &gilti_git::blame::Blame, repo: &str) -> Markup {
-    let lines = String::from_utf8_lossy(&model.bytes)
-        .split_inclusive('\n')
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
-    html! { table class=(blame::BLAME) {
-        @for hunk in &model.hunks {
-            @for offset in 0..hunk.lines {
-                @let line = hunk.start + offset;
-                tr class=[(offset % 2 == 0).then_some(blame::ALT)] {
-                    @if offset == 0 {
-                        td class=(blame::HASHES) rowspan=(hunk.lines) {
-                            span class=(blame::OID) title=(format!(
-                                "author  {} <{}>  {}\ncommitter  {} <{}>\n\n{}",
-                                hunk.author, hunk.author_email,
-                                RelativeTime::label(hunk.timestamp),
-                                hunk.committer, hunk.committer_email,
-                                hunk.summary
-                            )) {
-                                a href=(format!("{repo}/+/{}", hunk.oid)) { (&hunk.short_oid) }
-                            }
-                            @if let Some(parent) = &hunk.parent {
-                                " " a href=(format!(
-                                    "{repo}/+/{parent}/+/blame/{}",
-                                    crate::endpoints::shared::encode_path(&hunk.original_path)
-                                )) title="Blame the previous revision" { "^" }
-                            }
-                        }
+    let source = String::from_utf8_lossy(&model.bytes);
+    let source_lines = source.split_inclusive('\n').collect::<Vec<_>>();
+    let mut lines = Vec::new();
+    for (hunk_index, hunk) in model.hunks.iter().enumerate() {
+        for offset in 0..hunk.lines {
+            let line = hunk.start + offset;
+            let annotation = (offset == 0).then(|| {
+                html! {
+                    span class=(blame::OID) title=(format!(
+                        "author  {} <{}>  {}\ncommitter  {} <{}>\n\n{}",
+                        hunk.author,
+                        hunk.author_email,
+                        RelativeTime::label(hunk.timestamp),
+                        hunk.committer,
+                        hunk.committer_email,
+                        hunk.summary,
+                    )) {
+                        a href=(format!("{repo}/+/{}", hunk.oid)) { (&hunk.short_oid) }
                     }
-                    td class=(blame::LINENUMBERS) { a id=(format!("n{line}")) href=(format!("#n{line}")) { (line) } }
-                    td class=(blame::LINES) { pre { code { (lines.get(line - 1).map_or("", String::as_str)) } } }
+                    @if let Some(parent) = &hunk.parent {
+                        " " a href=(format!(
+                            "{repo}/+/{parent}/+/blame/{}",
+                            crate::urls::encode_path(&hunk.original_path),
+                        )) title="Blame the previous revision" { "^" }
+                    }
                 }
-            }
+            });
+            lines.push(CodeLine {
+                anchor: format!("n{line}"),
+                old_number: None,
+                new_number: Some(u32::try_from(line).unwrap_or(u32::MAX)),
+                annotation,
+                content: html! {
+                    (source_lines
+                        .get(line - 1)
+                        .map_or("", |line| line.strip_suffix('\n').unwrap_or(line)))
+                },
+                style: if hunk_index % 2 == 0 {
+                    LineStyle::Alternate
+                } else {
+                    LineStyle::Context
+                },
+            });
         }
-    } }
+    }
+    CodeBlock {
+        summary: "annotated source code",
+        numbers: LineNumbers::Single,
+        annotations: true,
+        lines,
+    }
+    .render()
 }
 
 fn breadcrumbs(repository: &str, revision: &str, path: &str) -> Markup {

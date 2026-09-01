@@ -8,37 +8,38 @@
 }
 
 .list tr {
-    background: white;
+    height: 25px;
+    background: var(--color-neutral-0);
 }
 
 .list tr:nth-child(even) {
-    background: #f7f7f7;
+    background: var(--color-neutral-50);
 }
 
 .list tr:nth-child(odd) {
-    background: white;
+    background: var(--color-neutral-0);
 }
 
 .list tr:hover {
-    background: #eee;
+    background: var(--color-neutral-100);
 }
 
 .list tr.static-row,
 .list tr.static-row:hover {
-    background: white;
+    background: var(--color-neutral-0);
 }
 
 .list tr.highlighted-row,
 .list tr.highlighted-row:hover {
-    background: #eee;
+    background: var(--color-neutral-100);
 }
 
 .list tr.preserve-stripe-on-hover:hover:nth-child(even) {
-    background: #f7f7f7;
+    background: var(--color-neutral-50);
 }
 
 .list tr.preserve-stripe-on-hover:hover:nth-child(odd) {
-    background: white;
+    background: var(--color-neutral-0);
 }
 
 .list th {
@@ -53,13 +54,78 @@
 }
 
 .list td a {
-    color: black;
+    color: var(--color-neutral-900);
 }
 
 .list td a:hover {
-    color: #00f;
+    color: var(--color-blue-500);
 }
 
 .nowrap td {
     white-space: nowrap;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+    row-gap: 1em;
+    width: 100%;
+}
+
+.grid > table {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+}
+
+.grid > table > tbody,
+.grid > table > tbody > tr {
+    display: contents;
+}
+
+.grid th,
+.grid td {
+    min-width: 0;
+}
+
+.grid tr > :nth-child(1) {
+    grid-column: 1;
+}
+
+.grid tr > :nth-child(2) {
+    grid-column: 2;
+}
+
+.grid tr > :nth-child(3) {
+    grid-column: 3;
+}
+
+.grid tr > :nth-child(4) {
+    grid-column: 4;
+}
+
+.grid tr > :nth-child(5) {
+    grid-column: 5;
+}
+
+.grid tr > * {
+    min-height: 25px;
+    background: var(--color-neutral-0);
+}
+
+.grid tr:nth-child(even) > * {
+    background: var(--color-neutral-50);
+}
+
+.grid tr:hover > * {
+    background: var(--color-neutral-100);
+}
+
+.grid tr:first-child > *,
+.grid tr:first-child:hover > * {
+    background: var(--color-neutral-0);
+}
+
+.grid [colspan="2"] {
+    grid-column: 4 / span 2;
 }

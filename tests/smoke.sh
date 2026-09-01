@@ -114,25 +114,61 @@ status=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$http
     echo "POST to repository browser returned HTTP $status instead of 405" >&2
     exit 1
 }
-stylesheet=$work/gilti.css
-curl -fsS "http://127.0.0.1:$http_port/-/assets/gilti.css" -o "$stylesheet"
-grep -q 'html,body{margin:0;padding:0}' "$stylesheet" || {
-    echo 'compiled stylesheet is missing the foundation styles' >&2
+global_stylesheet=$work/global.css
+app_stylesheet=$work/app.css
+curl -fsS "http://127.0.0.1:$http_port/-/assets/global.css" -o "$global_stylesheet"
+curl -fsS "http://127.0.0.1:$http_port/-/assets/app.css" -o "$app_stylesheet"
+grep -q 'IBM Plex Sans' "$global_stylesheet" || {
+    echo 'shared stylesheet is missing IBM Plex Sans' >&2
     exit 1
 }
-content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/gilti.css" |
+grep -q 'IBM Plex Math' "$global_stylesheet" || {
+    echo 'shared stylesheet is missing IBM Plex Math' >&2
+    exit 1
+}
+grep -q 'padding:4px' "$app_stylesheet" || {
+    echo 'application stylesheet is missing the Gilti theme' >&2
+    exit 1
+}
+asset_headers=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/app.css")
+content_type=$(printf '%s\n' "$asset_headers" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
-[ "$content_type" = text/css ] || {
-    echo "unexpected gilti.css content type: $content_type" >&2
+[ "$content_type" = 'text/css; charset=utf-8' ] || {
+    echo "unexpected app.css content type: $content_type" >&2
     exit 1
 }
-curl -fsS "http://127.0.0.1:$http_port/-/assets/gilti.js" | grep -q 'function'
-content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/gilti.js" |
+printf '%s\n' "$asset_headers" | grep -qi '^content-security-policy:'
+etag=$(printf '%s\n' "$asset_headers" |
+    awk -F ': ' 'tolower($1) == "etag" { gsub("\\r", "", $2); print $2 }')
+[ -n "$etag" ] || {
+    echo 'app.css has no ETag' >&2
+    exit 1
+}
+status=$(curl -sS -o /dev/null -w '%{http_code}' -H "If-None-Match: $etag" \
+    "http://127.0.0.1:$http_port/-/assets/app.css")
+[ "$status" = 304 ] || {
+    echo "conditional app.css returned HTTP $status instead of 304" >&2
+    exit 1
+}
+curl -fsS "http://127.0.0.1:$http_port/-/assets/app.js" | grep -q 'function'
+content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/app.js" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
-[ "$content_type" = text/javascript ] || {
-    echo "unexpected gilti.js content type: $content_type" >&2
+[ "$content_type" = 'text/javascript; charset=utf-8' ] || {
+    echo "unexpected app.js content type: $content_type" >&2
     exit 1
 }
+font_headers=$(curl -fsSI \
+    "http://127.0.0.1:$http_port/-/assets/fonts/ibm-plex-mono-variable-1.0.0-roman.woff2")
+printf '%s\n' "$font_headers" | grep -qi '^content-type: font/woff2'
+printf '%s\n' "$font_headers" | grep -qi '^cache-control: public, max-age=31536000, immutable'
+curl -fsSI "http://127.0.0.1:$http_port/favicon.ico" >/dev/null
+curl -fsSI "http://127.0.0.1:$http_port/apple-touch-icon.png" >/dev/null
+curl -fsSI "http://127.0.0.1:$http_port/robots.txt" >/dev/null
+curl -fsSI "http://127.0.0.1:$http_port/-/assets/favicon.svg" >/dev/null
+curl -fsSI "http://127.0.0.1:$http_port/-/assets/manifest.webmanifest" >/dev/null
+curl -fsSI "http://127.0.0.1:$http_port/-/assets/icon-192.png" >/dev/null
+curl -fsSI "http://127.0.0.1:$http_port/-/assets/icon-512.png" >/dev/null
+curl -fsS "http://127.0.0.1:$http_port/-/licenses.json" | grep -q 'OFL-1.1'
 curl -fsSI "http://127.0.0.1:$http_port/-/health" >/dev/null
 
 # shellcheck disable=SC2016 # Expanded by the shell inside the container.

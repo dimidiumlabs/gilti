@@ -32,12 +32,16 @@ pub async fn serve(
         query,
     }
     .render();
-    super::shared::render_titled(
+    super::shared::render_with_options(
         context,
         &model.repository,
         &model.revision,
         super::shared::Page::Revision,
-        Some(&model.subject),
+        super::shared::RenderOptions {
+            page_title: Some(&model.subject),
+            sidebar: Some(crate::endpoints::diff::options_sidebar(query)),
+            ..Default::default()
+        },
         content,
         &method,
     )
@@ -49,7 +53,10 @@ pub async fn serve(
 
 use maud::{Markup, Render, html};
 
-use crate::styles::classes::revision;
+use crate::{
+    components::key_value::{KeyValue, KeyValueList},
+    styles::classes::revision,
+};
 
 struct Page<'a> {
     model: &'a gilti_git::commit::Commit,
@@ -64,33 +71,53 @@ impl Render for Page<'_> {
 pub fn content(model: &gilti_git::commit::Commit, query: crate::endpoints::diff::Query) -> Markup {
     let repo = crate::endpoints::shared::repository_url(&model.repository.name);
     let revision = crate::endpoints::shared::encode_path(&model.revision);
-    html! { div {
-        (crate::endpoints::diff::content_controls(query))
-        table summary="commit info" class=(revision::INFO) {
-            tr { th { "author" } td { (&model.author.name) " <" (&model.author.email) ">" }
-                td class=(revision::RIGHT) { (timestamp(&model.author)) } }
-            tr { th { "committer" } td { (&model.committer.name) " <" (&model.committer.email) ">" }
-                td class=(revision::RIGHT) { (timestamp(&model.committer)) } }
-            tr { th { "commit" } td colspan="2" class=(revision::OID) {
+    let patch_old = model.parents.first().map_or("HEAD", String::as_str);
+    let mut metadata = vec![
+        KeyValue {
+            key: "author",
+            value: html! {
+                (&model.author.name) " <" (&model.author.email) "> " (timestamp(&model.author))
+            },
+        },
+        KeyValue {
+            key: "committer",
+            value: html! {
+                (&model.committer.name) " <" (&model.committer.email) "> " (timestamp(&model.committer))
+            },
+        },
+        KeyValue {
+            key: "commit",
+            value: html! { span class=(revision::OID) {
                 a href=(format!("{repo}/+/{}", model.oid)) { (&model.oid) }
-                @let patch_old = model.parents.first().map_or("HEAD", String::as_str);
                 " (" a href=(format!("{repo}/+/patch/{patch_old}..{}", model.oid)) { "patch" } ")"
-            } }
-            tr { th { "tree" } td colspan="2" class=(revision::OID) {
+            } },
+        },
+        KeyValue {
+            key: "tree",
+            value: html! { span class=(revision::OID) {
                 a href=(format!("{repo}/+/{revision}/+/tree")) { (&model.tree) }
-            } }
-            @for parent in &model.parents {
-                tr { th { "parent" } td colspan="2" class=(revision::OID) {
-                    a href=(format!("{repo}/+/{parent}")) { (parent) }
-                    " (" a href=(format!("{repo}/+/diff/{parent}..{}", model.oid)) { "diff" } ")"
-                } }
+            } },
+        },
+    ];
+    metadata.extend(model.parents.iter().map(|parent| KeyValue {
+        key: "parent",
+        value: html! { span class=(revision::OID) {
+            a href=(format!("{repo}/+/{parent}")) { (parent) }
+            " (" a href=(format!("{repo}/+/diff/{parent}..{}", model.oid)) { "diff" } ")"
+        } },
+    }));
+    metadata.push(KeyValue {
+        key: "download",
+        value: html! { span class=(revision::OID) {
+            @for format in ["tar", "tar.gz", "tar.bz2", "tar.lz", "tar.xz", "tar.zst", "zip"] {
+                a href=(format!("{repo}/+/{revision}/+/archive?format={format}")) { (format) }
+                " "
             }
-            tr { th { "download" } td colspan="2" class=(revision::OID) {
-                @for format in ["tar", "tar.gz", "tar.bz2", "tar.lz", "tar.xz", "tar.zst", "zip"] {
-                    a href=(format!("{repo}/+/{revision}/+/archive?format={format}")) { (format) } br;
-                }
-            } }
-        }
+        } },
+    });
+    html! { div {
+        (KeyValueList { label: "commit info", items: metadata })
+
         div class=(revision::SUBJECT) {
             (&model.subject)
             @for decoration in &model.decorations {
@@ -102,14 +129,17 @@ pub fn content(model: &gilti_git::commit::Commit, query: crate::endpoints::diff:
                 ")"
             }
         }
+
         div class=(revision::MESSAGE) { (&model.message) }
+
         @if let Some(notes) = &model.notes {
             div class=(revision::NOTES_HEADER) { "Notes" }
             div class=(revision::NOTES) { (notes) }
             div class=(revision::NOTES_FOOTER) {}
         }
+
         @if let Some(diff) = &model.diff {
-            (crate::endpoints::diff::DiffPage { model: diff, query, path: None, controls: false }.render())
+            (crate::components::diff::Diff { model: diff, mode: query.mode, path: None }.render())
         }
     } }
 }

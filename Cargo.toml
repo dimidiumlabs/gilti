@@ -20,6 +20,7 @@ axum = { version = "0.8.4", default-features = false, features = ["http1", "toki
 git2 = { version = "0.21.0", default-features = false, features = ["unstable-sha256", "vendored-libgit2"] }
 libc = "0.2.172"
 percent-encoding = "2.3.2"
+pulldown-cmark = { version = "0.13.4", default-features = false, features = ["html"] }
 tokio = { version = "1.44.2", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync"] }
 tower = { version = "0.5.2", features = ["util"] }
 maud = "0.27.0"

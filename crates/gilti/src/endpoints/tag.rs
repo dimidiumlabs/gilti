@@ -1,6 +1,16 @@
 // SPDX-FileCopyrightText: 2026 Nikolay Govorov
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use maud::{Markup, Render, html};
+
+use crate::{
+    components::{
+        key_value::{KeyValue, KeyValueList},
+        relative_time::RelativeTime,
+    },
+    styles::classes::tag,
+};
+
 pub async fn serve(
     context: &super::shared::Context,
     route: crate::router::RepoRoute<crate::router::Revision>,
@@ -34,14 +44,6 @@ pub async fn serve(
         &method,
     )
 }
-// SPDX-FileCopyrightText: 2026 Nikolay Govorov
-// SPDX-License-Identifier: AGPL-3.0-or-later
-
-// Route-specific presentation for the repository page.
-
-use maud::{Markup, Render, html};
-
-use crate::{components::relative_time::RelativeTime, styles::classes::tag};
 
 struct Page<'a> {
     model: &'a gilti_git::tag::Tag,
@@ -55,37 +57,57 @@ impl Render for Page<'_> {
 pub fn content(model: &gilti_git::tag::Tag) -> Markup {
     let repo = crate::endpoints::shared::repository_url(&model.repository.name);
     let revision = crate::endpoints::shared::encode_path(&model.reference);
-    html! { div {
-        table class=(tag::INFO) {
-            tr { td { "tag name" } td { (&model.name) @if model.annotated { " (" (&model.oid) ")" } } }
-            @if let Some(timestamp) = model.timestamp {
-                tr { td { "tag date" } td { (RelativeTime { timestamp }) } }
-            }
-            @if model.annotated {
-                tr { td { "tagged by" } td { (&model.tagger) " <" (&model.tagger_email) ">" } }
-            }
-            tr { td { "tagged object" } td class=(tag::OID) {
-                @for (index, target) in model.targets.iter().enumerate() {
-                    @if index > 0 { " → " }
-                    @if target.commit {
-                        a href=(format!("{repo}/+/{}", target.oid)) { (&target.oid) }
-                    } @else {
-                        a href=(format!("{repo}/+/object/{}", target.oid)) { (&target.oid) }
-                    }
+    let mut metadata = vec![KeyValue {
+        key: "tag name",
+        value: html! {
+            (&model.name)
+            @if model.annotated { " (" span class=(tag::OID) { (&model.oid) } ")" }
+        },
+    }];
+    if let Some(timestamp) = model.timestamp {
+        metadata.push(KeyValue {
+            key: "tag date",
+            value: html! { (RelativeTime { timestamp }) },
+        });
+    }
+    if model.annotated {
+        metadata.push(KeyValue {
+            key: "tagged by",
+            value: html! { (&model.tagger) " <" (&model.tagger_email) ">" },
+        });
+    }
+    metadata.push(KeyValue {
+        key: "tagged object",
+        value: html! { span class=(tag::OID) {
+            @for (index, target) in model.targets.iter().enumerate() {
+                @if index > 0 { " → " }
+                @if target.commit {
+                    a href=(format!("{repo}/+/{}", target.oid)) { (&target.oid) }
+                } @else {
+                    a href=(format!("{repo}/+/object/{}", target.oid)) { (&target.oid) }
                 }
-            } }
-            @if model.downloadable {
-                tr { td { "download" } td class=(tag::OID) {
-                    @for format in ["tar", "tar.gz", "tar.bz2", "tar.lz", "tar.xz", "tar.zst", "zip"] {
-                        a href=(format!("{repo}/+/{revision}/+/archive?format={format}")) { (format) } br;
-                    }
-                } }
             }
-        }
+        } },
+    });
+    if model.downloadable {
+        metadata.push(KeyValue {
+            key: "download",
+            value: html! { span class=(tag::OID) {
+                @for format in ["tar", "tar.gz", "tar.bz2", "tar.lz", "tar.xz", "tar.zst", "zip"] {
+                    a href=(format!("{repo}/+/{revision}/+/archive?format={format}")) { (format) }
+                    " "
+                }
+            } },
+        });
+    }
+    html! { div {
+        (KeyValueList { label: "tag info", items: metadata })
+
         @if model.annotated {
             @let mut lines = model.message.splitn(2, '\n');
+
             div class=(tag::SUBJECT) { (lines.next().unwrap_or_default()) }
-            div class=(tag::MESSAGE) { (lines.next().unwrap_or_default()) }
+            div class=(tag::MESSAGE) { (lines.next().unwrap_or("No decsription")) }
         }
     } }
 }

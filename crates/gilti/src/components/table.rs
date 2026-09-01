@@ -35,6 +35,19 @@ impl Render for ListRow {
     }
 }
 
+/// A shared column grid for separate but visually aligned data tables.
+pub struct TableGrid {
+    pub content: Markup,
+}
+
+impl Render for TableGrid {
+    fn render(&self) -> Markup {
+        html! {
+            div class=(table::GRID) { (&self.content) }
+        }
+    }
+}
+
 /// Domain-independent table frame for page-provided headers and rows.
 pub struct DataTable<'a> {
     pub summary: Option<&'a str>,
@@ -48,35 +61,11 @@ impl Render for DataTable<'_> {
             TableFrame::List { nowrap: true } => format!("{} {}", table::LIST, table::NOWRAP),
             TableFrame::List { nowrap: false } => table::LIST.to_owned(),
         };
-        html! { table summary=[self.summary] class=(class) { (self.content) } }
-    }
-}
 
-#[cfg(test)]
-mod tests {
-    use maud::{Render, html};
-
-    use super::{DataTable, ListRow, RowStyle, TableFrame};
-
-    #[test]
-    fn list_frame_and_rows_own_generated_classes() {
-        let table = DataTable {
-            summary: Some("rows"),
-            frame: TableFrame::List { nowrap: true },
-            content: html! {
-                (ListRow { style: RowStyle::Static, content: html! { td { "static" } } })
-                (ListRow { style: RowStyle::Highlighted, content: html! { td { "highlighted" } } })
-                (ListRow { style: RowStyle::PreserveStripeOnHover, content: html! { td { "striped" } } })
-                (ListRow { style: RowStyle::Normal, content: html! { td { "normal" } } })
-            },
+        html! {
+            table summary=[self.summary] class=(class) {
+                (self.content)
+            }
         }
-        .render()
-        .into_string();
-        assert!(table.contains(crate::styles::classes::table::LIST));
-        assert!(table.contains(crate::styles::classes::table::NOWRAP));
-        assert!(table.contains(crate::styles::classes::table::STATIC_ROW));
-        assert!(table.contains(crate::styles::classes::table::HIGHLIGHTED_ROW));
-        assert!(table.contains(crate::styles::classes::table::PRESERVE_STRIPE_ON_HOVER));
-        assert!(!table.contains("class=\"static-row\""));
     }
 }

@@ -61,11 +61,15 @@ pub async fn serve(
         query: &query,
     }
     .render();
-    super::shared::render(
+    super::shared::render_with_options(
         context,
         &model.repository,
         "HEAD",
         super::shared::Page::Stats,
+        super::shared::RenderOptions {
+            sidebar: Some(options_sidebar(&query)),
+            ..Default::default()
+        },
         content,
         &method,
     )
@@ -89,34 +93,34 @@ impl Render for Page<'_> {
     }
 }
 
+fn options_sidebar(query: &crate::endpoints::stats::Query) -> Markup {
+    html! {
+        form method="get" aria-label="stat options" {
+            strong { "stat options" }
+            label for="stats-period" { "Period:" }
+            select id="stats-period" name="period" {
+                @for (code, name) in [("w","week"),("m","month"),("q","quarter"),("y","year")] {
+                    option value=(code) selected[query.code == code] { (name) }
+                }
+            }
+            label for="stats-authors" { "Authors:" }
+            select id="stats-authors" name="ofs" {
+                @for value in [10_usize,25,50,100] {
+                    option value=(value) selected[query.top == Some(value)] { (value) }
+                }
+                option value="-1" selected[query.top.is_none()] { "all" }
+            }
+            button type="submit" { "apply" }
+        }
+    }
+}
+
 pub fn content(model: &gilti_git::stats::Stats, query: &crate::endpoints::stats::Query) -> Markup {
     let shown = query
         .top
         .unwrap_or(model.authors.len())
         .min(model.authors.len());
     html! { div {
-        div class=(stats::PANEL) {
-            b { "stat options" }
-            form method="get" { table {
-                tr { td colspan="2" {} }
-                tr { td class=(stats::LABEL) { "Period:" } td class=(stats::CTRL) {
-                    select name="period" onchange="this.form.submit();" {
-                        @for (code, name) in [("w","week"),("m","month"),("q","quarter"),("y","year")] {
-                            option value=(code) selected[query.code == code] { (name) }
-                        }
-                    }
-                } }
-                tr { td class=(stats::LABEL) { "Authors:" } td class=(stats::CTRL) {
-                    select name="ofs" onchange="this.form.submit();" {
-                        @for value in [10_usize,25,50,100] {
-                            option value=(value) selected[query.top == Some(value)] { (value) }
-                        }
-                        option value="-1" selected[query.top.is_none()] { "all" }
-                    }
-                } }
-                tr { td {} td class=(stats::CTRL) { noscript { input type="submit" value="Reload"; } } }
-            } }
-        }
         h2 { "Commits per author per " (query.period.name()) }
         table class=(stats::TABLE) {
             tr { th { "Author" } @for label in &model.labels { th { (label) } } th { "Total" } }

@@ -15,23 +15,17 @@ esac
     echo "requested $arch artifacts on $native_arch" >&2
     exit 1
 }
-ldd --version 2>&1 | grep -q musl || {
-    echo 'container artifacts must be built in a musl environment' >&2
-    exit 1
-}
-
 workspace=$PWD
-build=$(mktemp -d)
-trap 'rm -rf "$build"' EXIT INT TERM
 
-CARGO_TARGET_DIR="$build/target" cargo build \
+# Keep Cargo's normal target directory. CI restores it through rust-cache, so
+# this build only links artifacts not already produced by the preceding checks.
+cargo build \
     --manifest-path "$workspace/Cargo.toml" \
     --locked \
     --release \
-    --workspace
+    --package gilti \
+    --package gilti-ssh
 output="$workspace/.container/binary-$arch"
 rm -rf "$output"
-install -Dm0755 "$build/target/release/gilti" "$output/gilti"
-install -Dm0755 "$build/target/release/gilti-ssh" "$output/gilti-ssh"
-install -Dm0644 crates/gilti/assets/gilti.png "$output/gilti.png"
-install -Dm0644 crates/gilti/assets/favicon.ico "$output/favicon.ico"
+install -Dm0755 "$workspace/target/release/gilti" "$output/gilti"
+install -Dm0755 "$workspace/target/release/gilti-ssh" "$output/gilti-ssh"

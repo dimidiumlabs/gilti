@@ -2,34 +2,21 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 
 .table {
-    border: solid 1px black;
+    border: solid 1px var(--color-neutral-900);
     border-collapse: collapse;
 }
 
 .table th {
     text-align: left;
     padding: 1px .5em;
-    background: #eee;
-    border: solid 1px black;
+    background: var(--color-neutral-100);
+    border: solid 1px var(--color-neutral-900);
 }
 
 .table td {
     text-align: right;
     padding: 1px .5em;
-    border: solid 1px black;
-}
-
-.panel {
-    float: right;
-    margin-top: 1.5em;
-}
-
-.label {
-    padding-right: .5em;
-}
-
-.ctrl {
-    padding-left: .5em;
+    border: solid 1px var(--color-neutral-900);
 }
 
 .left {
@@ -37,7 +24,7 @@
 }
 
 .sum {
-    color: #c00;
+    color: var(--color-red-600);
     font-weight: bold;
 }
 

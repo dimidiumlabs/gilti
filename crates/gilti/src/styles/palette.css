@@ -1,0 +1,47 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+:root {
+    --color-neutral-0: #fff;
+    --color-neutral-50: #f7f7f7;
+    --color-neutral-100: #eee;
+    --color-neutral-200: #ccc;
+    --color-neutral-300: #bbb;
+    --color-neutral-400: #aaa;
+    --color-neutral-500: #888;
+    --color-neutral-550: #808080;
+    --color-neutral-600: #777;
+    --color-neutral-700: #444;
+    --color-neutral-800: #333;
+    --color-neutral-900: #000;
+
+    --color-red-100: #fcc;
+    --color-red-300: #f88;
+    --color-red-500: #f00;
+    --color-red-600: #c00;
+    --color-red-700: #a00;
+    --color-red-800: #800;
+    --color-red-900: #700;
+
+    --color-orange-200: #fc8;
+
+    --color-yellow-200: #ff8;
+    --color-yellow-600: #aa0;
+    --color-yellow-800: #770;
+
+    --color-green-100: #cfc;
+    --color-green-300: #8f8;
+    --color-green-500: #0a0;
+    --color-green-550: #080;
+    --color-green-600: #008000;
+    --color-green-700: #070;
+    --color-green-900: #040;
+
+    --color-blue-100: #ccf;
+    --color-blue-500: #00f;
+    --color-blue-700: #00a;
+    --color-blue-800: #009;
+
+    --color-cyan-500: #0aa;
+    --color-magenta-500: #a0a;
+}

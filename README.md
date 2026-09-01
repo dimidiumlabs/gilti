@@ -87,10 +87,20 @@ shellcheck scripts/*.sh tests/*.sh
 mise run chart -- --chart charts/gilti --lint-only
 ```
 
-The CI matrix builds architecture-specific Alpine artifacts before assembling
-the image; the Dockerfile does not compile source code. Linux packages are
-intentionally not produced. Gilti's release artifacts are a multi-platform OCI
-image and an OCI Helm chart.
+For layout work, run the source watcher after starting `gilti-playground.service`:
+
+```console
+mise run dev
+```
+
+It rebuilds the `gilti` binary and restarts the user service after changes to
+Gilti sources or manifests. Set `GILTI_DEV_SERVICE` to use a different systemd
+user unit. Browser refresh remains manual.
+
+The CI matrix builds architecture-specific native Linux artifacts before
+assembling the image; the Dockerfile does not compile source code. Linux
+packages are intentionally not produced. Gilti's release artifacts are a
+multi-platform OCI image and an OCI Helm chart.
 
 ## Contributing
 

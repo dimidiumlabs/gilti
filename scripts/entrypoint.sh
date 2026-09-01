@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/sh
 # SPDX-FileCopyrightText: 2026 Nikolay Govorov
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # shellcheck shell=dash
@@ -28,7 +28,7 @@ prepare_runtime() {
     install -d -m 0755 -o root -g root "$state"
     install -d -m 0750 -o git -g git "$git_home" "$repositories"
     install -d -m 0700 -o root -g root "$host_key_dir"
-    install -d -m 0755 -o root -g root "$run_dir"
+    install -d -m 0755 -o root -g root "$run_dir" /run/sshd
     install -d -m 0750 -o root -g git "$ssh_run_dir"
     rm -f "$ssh_run_dir/sshd.pid" "$authorized_keys" "$authorized_keys".*
 }
@@ -137,7 +137,7 @@ supervise() {
     /usr/sbin/sshd -D -e -f /etc/ssh/sshd_config &
     sshd_pid=$!
 
-    su-exec git:git env HOME="$git_home" USER=git LOGNAME=git \
+    gosu git:git env HOME="$git_home" USER=git LOGNAME=git \
         /usr/local/bin/gilti &
     httpd_pid=$!
 

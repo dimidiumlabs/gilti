@@ -134,6 +134,13 @@ fn directory(
             symlink_target,
         });
     }
+    entries.sort_by(|left, right| {
+        let left_group = usize::from(left.kind != Kind::Tree);
+        let right_group = usize::from(right.kind != Kind::Tree);
+        left_group
+            .cmp(&right_group)
+            .then_with(|| left.name.cmp(&right.name))
+    });
     Ok(Content::Directory {
         oid: tree.id().to_string(),
         entries,
@@ -188,6 +195,13 @@ mod tests {
             panic!("expected directory")
         };
         assert_eq!(entries.len(), 4);
+        assert_eq!(
+            entries
+                .iter()
+                .map(|entry| entry.name.as_str())
+                .collect::<Vec<_>>(),
+            ["dir", "README.md", "link", "run"],
+        );
         assert_eq!(
             entries
                 .iter()

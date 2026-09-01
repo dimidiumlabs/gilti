@@ -4,9 +4,11 @@
 use maud::{Markup, Render};
 
 use crate::{
-    components::{document::Document, tabs::Tab},
+    components::{document, layout::NavigationLink},
     endpoints::overview::RepositoryPage,
 };
+
+pub use crate::urls::{encode_path, repository as repository_url};
 
 #[derive(Clone)]
 pub struct Context {
@@ -28,6 +30,13 @@ pub enum Page {
     Stats,
 }
 
+#[derive(Default)]
+pub struct RenderOptions<'a> {
+    pub page_title: Option<&'a str>,
+    pub navigation_search: Option<Markup>,
+    pub sidebar: Option<Markup>,
+}
+
 pub fn render(
     context: &Context,
     repository: &gilti_git::repository::Info,
@@ -36,21 +45,29 @@ pub fn render(
     content: Markup,
     method: &axum::http::Method,
 ) -> axum::response::Response {
-    render_titled(context, repository, revision, active, None, content, method)
+    render_with_options(
+        context,
+        repository,
+        revision,
+        active,
+        RenderOptions::default(),
+        content,
+        method,
+    )
 }
 
-pub fn render_titled(
+pub fn render_with_options(
     context: &Context,
     repository: &gilti_git::repository::Info,
     revision: &str,
     active: Page,
-    page_title: Option<&str>,
+    options: RenderOptions<'_>,
     content: Markup,
-    method: &axum::http::Method,
+    _method: &axum::http::Method,
 ) -> axum::response::Response {
     let repo = repository_url(&repository.name);
     let rev = encode_path(revision);
-    let title = page_title.map_or_else(
+    let title = options.page_title.map_or_else(
         || format!("{} - {}", repository.name, repository.description),
         |page_title| {
             format!(
@@ -62,50 +79,50 @@ pub fn render_titled(
     let about_url = format!("{repo}/+/about");
     let refs_url = format!("{repo}/+/refs");
     let log_url = format!("{repo}/+/{rev}/+/log");
-    let tree_url = format!("{repo}/+/{rev}/+/tree");
     let revision_url = format!("{repo}/+/{rev}");
+    let tree_url = format!("{repo}/+/{rev}/+/tree");
     let diff_url = format!("{repo}/+/diff/HEAD..{rev}");
     let stats_url = format!("{repo}/+/stats");
-    let mut tabs = Vec::new();
+    let mut navigation_links = Vec::new();
     if repository.has_readme {
-        tabs.push(Tab {
+        navigation_links.push(NavigationLink {
             url: &about_url,
             label: "about",
             active: active == Page::About,
         });
     }
-    tabs.extend([
-        Tab {
+    navigation_links.extend([
+        NavigationLink {
             url: &repo,
             label: "summary",
             active: active == Page::Summary,
         },
-        Tab {
+        NavigationLink {
             url: &refs_url,
             label: "refs",
             active: active == Page::Refs,
         },
-        Tab {
+        NavigationLink {
             url: &log_url,
             label: "log",
             active: active == Page::Log,
         },
-        Tab {
+        NavigationLink {
             url: &tree_url,
             label: "tree",
             active: active == Page::Tree,
         },
-        Tab {
+        NavigationLink {
             url: &revision_url,
             label: "commit",
             active: active == Page::Revision,
         },
-        Tab {
+        NavigationLink {
             url: &diff_url,
             label: "diff",
             active: active == Page::Diff,
         },
-        Tab {
+        NavigationLink {
             url: &stats_url,
             label: "stats",
             active: active == Page::Stats,
@@ -116,42 +133,18 @@ pub fn render_titled(
         repository_url: &repo,
         repository_name: &repository.name,
         description: &repository.description,
-        tabs,
+        navigation_links,
+        navigation_search: options.navigation_search,
+        sidebar: options.sidebar,
         content,
     };
-    let document = Document {
-        title: &title,
-        body: page.render(),
-    }
-    .render()
-    .into_string();
+    let document = document::render(&title, page.render()).into_string();
     let length = document.len();
-    let body = if method == axum::http::Method::HEAD {
-        axum::body::Body::empty()
-    } else {
-        axum::body::Body::from(document)
-    };
+    let body = axum::body::Body::from(document);
     axum::response::Response::builder()
         .status(axum::http::StatusCode::OK)
         .header(axum::http::header::CONTENT_TYPE, "text/html; charset=UTF-8")
         .header(axum::http::header::CONTENT_LENGTH, length)
         .body(body)
         .expect("HTML response is valid")
-}
-
-pub fn repository_url(repository: &str) -> String {
-    format!("/{}", encode_path(repository))
-}
-
-pub fn encode_path(value: &str) -> String {
-    let mut encoded = String::new();
-    for byte in value.bytes() {
-        if byte.is_ascii_alphanumeric() || byte == b'/' || byte == b'_' {
-            encoded.push(char::from(byte));
-        } else {
-            use std::fmt::Write;
-            write!(encoded, "%{byte:02x}").expect("writing to String cannot fail");
-        }
-    }
-    encoded
 }

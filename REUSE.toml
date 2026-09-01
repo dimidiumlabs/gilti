@@ -30,8 +30,7 @@ SPDX-License-Identifier = "CC-BY-3.0"
 
 [[annotations]]
 path = [
-  "crates/gilti/assets/gilti.png",
-  "crates/gilti/assets/favicon.ico",
+  "crates/gilti/src/assets/*",
 ]
-SPDX-FileCopyrightText = "cgit Development Team <cgit@lists.zx2c4.com>"
-SPDX-License-Identifier = "GPL-2.0-only"
+SPDX-FileCopyrightText = "2026 Nikolay Govorov"
+SPDX-License-Identifier = "AGPL-3.0-or-later"

@@ -1,0 +1,14 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.root {
+    display: grid;
+    grid-template-columns: max-content auto;
+    gap: 0 2em;
+}
+
+.root dt,
+.root dd {
+    margin: 0;
+    padding: 0;
+}
