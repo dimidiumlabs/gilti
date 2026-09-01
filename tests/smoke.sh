@@ -18,11 +18,20 @@ remove_container() {
 }
 
 cleanup() {
+    status=$?
+    trap - EXIT INT TERM
+    if [ "$status" -ne 0 ]; then
+        echo "smoke test failed with exit code $status" >&2
+        "$engine" logs "$name" >&2 || true
+    fi
     remove_container
     "$engine" volume rm "$volume" >/dev/null 2>&1 || true
     rm -rf "$work"
+    exit "$status"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 ssh-keygen -q -t ed25519 -N '' -f "$work/admin"
 ssh-keygen -q -t ed25519 -N '' -f "$work/admin-2"
@@ -105,7 +114,12 @@ status=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$http
     echo "POST to repository browser returned HTTP $status instead of 405" >&2
     exit 1
 }
-curl -fsS "http://127.0.0.1:$http_port/-/assets/gilti.css" | grep -q 'div#gilti'
+stylesheet=$work/gilti.css
+curl -fsS "http://127.0.0.1:$http_port/-/assets/gilti.css" -o "$stylesheet"
+grep -q 'html,body{margin:0;padding:0}' "$stylesheet" || {
+    echo 'compiled stylesheet is missing the foundation styles' >&2
+    exit 1
+}
 content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/gilti.css" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
 [ "$content_type" = text/css ] || {
@@ -239,7 +253,10 @@ new_commit=$(git -C "$work/testing-clone" rev-parse HEAD)
 curl -fsS "http://127.0.0.1:$http_port/testing/+/$new_commit" | grep -q 'Push with second key'
 log_url="http://127.0.0.1:$http_port/testing/+/refs/heads/main/+/log"
 curl -fsS "$log_url" -o "$work/log.html"
-grep -q 'id="gilti"' "$work/log.html"
+grep -q '<meta name="generator" content="Gilti">' "$work/log.html" || {
+    echo 'log page is missing the Gilti document metadata' >&2
+    exit 1
+}
 grep -q 'Push with second key' "$work/log.html"
 log_length=$(wc -c <"$work/log.html" | tr -d ' ')
 head_length=$(curl -fsSI "$log_url" |

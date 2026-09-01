@@ -1,0 +1,27 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.root[data-unit="minutes"] {
+    color: #080;
+    font-weight: bold;
+}
+
+.root[data-unit="hours"] {
+    color: #080;
+}
+
+.root[data-unit="days"] {
+    color: #040;
+}
+
+.root[data-unit="weeks"] {
+    color: #444;
+}
+
+.root[data-unit="months"] {
+    color: #888;
+}
+
+.root[data-unit="years"] {
+    color: #bbb;
+}

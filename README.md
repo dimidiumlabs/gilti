@@ -47,11 +47,12 @@ The HTTP configuration is read from the environment at startup:
 - `GILTI_ROOT_TITLE` (default: `Gilti`);
 - `GILTI_ROOT_DESCRIPTION` (default: `A tiny Git server`);
 - `GILTI_CLONE_PREFIX` (empty by default);
-- `GILTI_HTTP_WRITE` (`0` by default; `1` enables unauthenticated HTTP pushes and LFS uploads).
+- `GILTI_HTTP_WRITE` (`0` by default; `1` enables unauthenticated HTTP pushes
+  and LFS uploads).
 
 Gilti snapshots the authorized keys file at process startup; changing it takes
-effect after a restart. Repositories and the persistent SSH host key live on
-the state volume.
+effect after a restart. Repositories and the persistent SSH host key live on the
+state volume.
 
 ## Helm
 
@@ -59,8 +60,8 @@ Configure the allowed public keys in values:
 
 ```yaml
 ssh:
-  authorizedKeys:
-    - ssh-ed25519 AAAA... operator@example
+    authorizedKeys:
+        - ssh-ed25519 AAAA... operator@example
 ```
 
 ```console

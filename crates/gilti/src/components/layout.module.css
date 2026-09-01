@@ -1,0 +1,19 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.content {
+    margin: 0;
+    padding: 2em;
+    border-bottom: solid 3px #ccc;
+}
+
+.footer {
+    margin-top: 0.5em;
+    text-align: center;
+    font-size: 80%;
+    color: #ccc;
+}
+
+.footer a {
+    color: #ccc;
+}

@@ -1,0 +1,107 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.path {
+    margin: 0;
+    padding: 5px 2em 2px;
+    color: #000;
+    background: #eee;
+}
+
+.left {
+    text-align: left;
+}
+
+.right {
+    text-align: right;
+}
+
+.ls-blob,
+.ls-dir,
+.ls-mod,
+.ls-mode,
+.ls-size,
+.hex {
+    font-family: monospace;
+}
+
+.ls-dir {
+    font-weight: bold;
+    color: #00f;
+}
+
+.ls-size,
+.ls-mode {
+    width: 10em;
+}
+
+.ls-size {
+    text-align: right;
+}
+
+.button {
+    font-size: 80%;
+    padding: 0 .5em;
+}
+
+.blob {
+    margin-top: .5em;
+    border-top: solid 1px black;
+}
+
+.blob td {
+    margin: 0;
+    padding: 0 0 0 .5em;
+    vertical-align: top;
+    color: black;
+}
+
+.linenumbers {
+    margin: 0;
+    padding: 0 .5em;
+    vertical-align: top;
+    text-align: right;
+    border-right: 1px solid gray;
+}
+
+.blob pre {
+    margin: 0;
+    padding: 0;
+}
+
+.linenumbers a {
+    color: gray;
+    text-decoration: none;
+}
+
+.linenumbers a:hover {
+    color: black;
+}
+
+.linenumbers a:target:before {
+    color: red;
+    content: "\2BA9";
+}
+
+.bin-blob {
+    margin-top: .5em;
+    border: solid 1px black;
+}
+
+.bin-blob th {
+    font-family: monospace;
+    white-space: pre;
+    border: solid 1px #777;
+    padding: .5em 1em;
+}
+
+.bin-blob td {
+    font-family: monospace;
+    white-space: pre;
+    border-left: solid 1px #777;
+    padding: 0 1em;
+}
+
+.lines {
+    vertical-align: top;
+}

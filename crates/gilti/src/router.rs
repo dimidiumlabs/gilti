@@ -201,14 +201,8 @@ pub struct Comparison {
     pub path: Option<String>,
 }
 
-/// A revision route is immutable for a full commit OID and mutable for a ref or
-/// `HEAD`. An annotated tag displays its object chain and peeled target.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Revision {
-    Head,
-    Ref(String),
-    Commit(String),
-}
+/// Git revision selector shared with the framework-independent repository library.
+pub use gilti_git::Revision;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ParseError;

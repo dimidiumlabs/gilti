@@ -1,0 +1,48 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.left {
+    text-align: left;
+}
+
+.decoration {
+    font-size: 75%;
+}
+
+.deco,
+.branch-deco,
+.tag-annotated-deco {
+    color: #000;
+    margin: 0 .5em;
+    padding: 0 .25em;
+    border-radius: 2px;
+}
+
+.deco {
+    background: #f88;
+    border: solid 1px #700;
+}
+
+.branch-deco {
+    background: #8f8;
+    border: solid 1px #070;
+}
+
+.tag-annotated-deco {
+    background: #fc8;
+    border: solid 1px #770;
+}
+
+.insertions {
+    color: #080;
+}
+
+.deletions {
+    color: #800;
+}
+
+.error {
+    color: red;
+    font-weight: bold;
+    margin: 1em 2em;
+}

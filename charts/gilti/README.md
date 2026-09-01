@@ -11,9 +11,9 @@ Public keys are static chart configuration:
 
 ```yaml
 ssh:
-  authorizedKeys:
-    - ssh-ed25519 AAAA... operator@example
-    - ssh-ed25519 AAAA... automation@example
+    authorizedKeys:
+        - ssh-ed25519 AAAA... operator@example
+        - ssh-ed25519 AAAA... automation@example
 ```
 
 Every configured key has the same permissions: it may fetch, push, and create
@@ -51,23 +51,23 @@ Example for the first Dimidium Labs installation:
 
 ```yaml
 ssh:
-  authorizedKeys:
-    - ssh-ed25519 AAAA... operator@example
+    authorizedKeys:
+        - ssh-ed25519 AAAA... operator@example
 web:
-  clonePrefix: ssh://git@git.dimidiumlabs.io/
+    clonePrefix: ssh://git@git.dimidiumlabs.io/
 httpRoute:
-  enabled: true
-  hostnames: [git.dimidiumlabs.io]
-  parentRefs:
-    - name: public
-      namespace: network
-      sectionName: vcs-https
+    enabled: true
+    hostnames: [git.dimidiumlabs.io]
+    parentRefs:
+        - name: public
+          namespace: network
+          sectionName: vcs-https
 sshRoute:
-  enabled: true
-  parentRefs:
-    - name: public
-      namespace: network
-      sectionName: vcs-ssh
+    enabled: true
+    parentRefs:
+        - name: public
+          namespace: network
+          sectionName: vcs-ssh
 ```
 
 TLS terminates at the shared Gateway; the chart does not create certificates.
@@ -80,5 +80,4 @@ The Rust HTTP gateway and its native views run without privileges. OpenSSH
 intentionally keeps a root master so it can enter the `git` account (UID/GID
 10000). The chart drops all capabilities and restores only `CHOWN`,
 `DAC_OVERRIDE`, `FOWNER`, `SETGID`, `SETUID`, and `SYS_CHROOT`. The root
-filesystem is read-only; state, `/run`, and `/tmp` are explicit writable
-mounts.
+filesystem is read-only; state, `/run`, and `/tmp` are explicit writable mounts.

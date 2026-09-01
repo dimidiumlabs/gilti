@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Nikolay Govorov
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+[package]
+name = "gilti-git"
+description = "Git repository and transport library for Gilti"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+git2.workspace = true
+percent-encoding.workspace = true
+tokio.workspace = true
+sha2.workspace = true
+libc.workspace = true

@@ -1,0 +1,65 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.list {
+    width: 100%;
+    border: none;
+    border-collapse: collapse;
+}
+
+.list tr {
+    background: white;
+}
+
+.list tr:nth-child(even) {
+    background: #f7f7f7;
+}
+
+.list tr:nth-child(odd) {
+    background: white;
+}
+
+.list tr:hover {
+    background: #eee;
+}
+
+.list tr.static-row,
+.list tr.static-row:hover {
+    background: white;
+}
+
+.list tr.highlighted-row,
+.list tr.highlighted-row:hover {
+    background: #eee;
+}
+
+.list tr.preserve-stripe-on-hover:hover:nth-child(even) {
+    background: #f7f7f7;
+}
+
+.list tr.preserve-stripe-on-hover:hover:nth-child(odd) {
+    background: white;
+}
+
+.list th {
+    font-weight: bold;
+    padding: .1em .5em .05em;
+    vertical-align: baseline;
+}
+
+.list td {
+    border: none;
+    padding: .1em .5em;
+}
+
+.list td a {
+    color: black;
+}
+
+.list td a:hover {
+    color: #00f;
+}
+
+.nowrap td {
+    white-space: nowrap;
+}

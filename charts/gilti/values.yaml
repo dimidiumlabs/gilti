@@ -4,84 +4,84 @@
 replicaCount: 1
 
 image:
-  repository: ghcr.io/dimidiumlabs/gilti
-  tag: ""
-  digest: ""
-  pullPolicy: IfNotPresent
+    repository: ghcr.io/dimidiumlabs/gilti
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
 ssh:
-  # Every listed key has read/write access to every repository.
-  authorizedKeys: []
+    # Every listed key has read/write access to every repository.
+    authorizedKeys: []
 
 web:
-  rootTitle: Gilti
-  rootDescription: A tiny Git server
-  clonePrefix: ""
+    rootTitle: Gilti
+    rootDescription: A tiny Git server
+    clonePrefix: ""
 
 http:
-  # Allow unauthenticated Git receive-pack and LFS uploads.
-  write: false
+    # Allow unauthenticated Git receive-pack and LFS uploads.
+    write: false
 
 persistence:
-  enabled: true
-  existingClaim: ""
-  retain: true
-  accessModes: [ReadWriteOnce]
-  size: 10Gi
-  storageClass: ""
+    enabled: true
+    existingClaim: ""
+    retain: true
+    accessModes: [ReadWriteOnce]
+    size: 10Gi
+    storageClass: ""
 
 httpService:
-  type: ClusterIP
-  port: 80
-  annotations: {}
+    type: ClusterIP
+    port: 80
+    annotations: {}
 
 sshService:
-  type: ClusterIP
-  port: 22
-  annotations: {}
-  externalTrafficPolicy: ""
+    type: ClusterIP
+    port: 22
+    annotations: {}
+    externalTrafficPolicy: ""
 
 httpRoute:
-  enabled: false
-  hostnames: []
-  parentRefs: []
+    enabled: false
+    hostnames: []
+    parentRefs: []
 
 sshRoute:
-  enabled: false
-  apiVersion: gateway.networking.k8s.io/v1
-  parentRefs: []
+    enabled: false
+    apiVersion: gateway.networking.k8s.io/v1
+    parentRefs: []
 
 podAnnotations: {}
 podLabels: {}
 
 podSecurityContext:
-  seccompProfile:
-    type: RuntimeDefault
+    seccompProfile:
+        type: RuntimeDefault
 
 # OpenSSH keeps a root master and drops to UID/GID 10000 for Git sessions.
 securityContext:
-  runAsUser: 0
-  runAsGroup: 0
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop: [ALL]
-    add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID, SYS_CHROOT]
+    runAsUser: 0
+    runAsGroup: 0
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+        drop: [ALL]
+        add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID, SYS_CHROOT]
 
 resources:
-  requests:
-    cpu: 50m
-    memory: 128Mi
-  limits:
-    memory: 1Gi
+    requests:
+        cpu: 50m
+        memory: 128Mi
+    limits:
+        memory: 1Gi
 
 runtime:
-  runSizeLimit: 32Mi
-  tmpSizeLimit: 256Mi
+    runSizeLimit: 32Mi
+    tmpSizeLimit: 256Mi
 
 nodeSelector: {}
 tolerations: []

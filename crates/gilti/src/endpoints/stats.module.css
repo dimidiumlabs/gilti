@@ -1,0 +1,47 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.table {
+    border: solid 1px black;
+    border-collapse: collapse;
+}
+
+.table th {
+    text-align: left;
+    padding: 1px .5em;
+    background: #eee;
+    border: solid 1px black;
+}
+
+.table td {
+    text-align: right;
+    padding: 1px .5em;
+    border: solid 1px black;
+}
+
+.panel {
+    float: right;
+    margin-top: 1.5em;
+}
+
+.label {
+    padding-right: .5em;
+}
+
+.ctrl {
+    padding-left: .5em;
+}
+
+.left {
+    text-align: left;
+}
+
+.sum {
+    color: #c00;
+    font-weight: bold;
+}
+
+.total {
+    font-weight: bold;
+    text-align: left;
+}

@@ -14,9 +14,11 @@ homepage.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[build-dependencies]
+dimidiumlabs-ui-build = { git = "https://git.dimidiumlabs.io/platform.git", rev = "45075fe2b82129bd87013a86f7a03dc76f95bffc" }
+
 [dependencies]
 axum.workspace = true
-git2.workspace = true
 libc.workspace = true
 percent-encoding.workspace = true
 tokio.workspace = true
@@ -24,4 +26,6 @@ tower.workspace = true
 maud.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sha2.workspace = true
+gilti-git = { path = "../git" }
+tokio-util.workspace = true
+futures-util.workspace = true

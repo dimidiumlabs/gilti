@@ -1,0 +1,62 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.path {
+    margin: 0;
+    padding: 5px 2em 2px;
+    color: #000;
+    background: #eee;
+}
+
+.error {
+    color: red;
+    font-weight: bold;
+    margin: 1em 2em;
+}
+
+.blame {
+    border-collapse: collapse;
+    margin-top: .5em;
+    border-top: solid 1px black;
+}
+
+.blame td {
+    margin: 0;
+    padding: 0 0 0 .5em;
+    vertical-align: top;
+    color: black;
+}
+
+.blame .hashes,
+.blame .lines,
+.blame .linenumbers {
+    padding: 0;
+}
+
+.linenumbers {
+    text-align: right;
+    border-right: 1px solid gray;
+}
+
+.linenumbers a {
+    color: gray;
+    text-decoration: none;
+}
+
+.linenumbers a:hover {
+    color: black;
+}
+
+.linenumbers a:target:before {
+    color: red;
+    content: "\2BA9";
+}
+
+.alt {
+    background: #eee;
+}
+
+.oid {
+    font-family: monospace;
+    font-size: 90%;
+}

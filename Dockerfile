@@ -47,8 +47,6 @@ COPY --chown=root:root --chmod=0755 \
     .container/binary-${TARGETARCH}/gilti-ssh \
     /usr/local/bin/
 COPY --chown=root:root \
-    .container/binary-${TARGETARCH}/gilti.css \
-    .container/binary-${TARGETARCH}/gilti.js \
     .container/binary-${TARGETARCH}/gilti.png \
     .container/binary-${TARGETARCH}/favicon.ico \
     /usr/share/gilti/

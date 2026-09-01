@@ -1,0 +1,153 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.gilti-panel {
+    float: right;
+    margin-top: 1.5em;
+}
+
+.gilti-panel table,
+.diffstat {
+    border: solid 1px #aaa;
+    background: #eee;
+}
+
+.gilti-panel td {
+    padding: .25em .5em;
+}
+
+.label {
+    padding-right: .5em;
+}
+
+.ctrl {
+    padding-left: .5em;
+}
+
+.diffstat-header {
+    font-weight: bold;
+    padding-top: 1.5em;
+}
+
+.diffstat th {
+    font-weight: normal;
+    text-align: left;
+    text-decoration: underline;
+    padding: .1em 1em .1em .1em;
+}
+
+.diffstat td {
+    padding: .2em .2em .1em .1em;
+    border: none;
+}
+
+.mode {
+    white-space: nowrap;
+}
+
+.modechange {
+    padding-left: 1em;
+    color: red;
+}
+
+.add a {
+    color: green;
+}
+
+.del a {
+    color: red;
+}
+
+.upd a {
+    color: blue;
+}
+
+.right {
+    text-align: right;
+}
+
+.graph {
+    width: 500px;
+    vertical-align: middle;
+}
+
+.diffstat-summary {
+    color: #888;
+    padding-top: .5em;
+}
+
+.ssdiff {
+    width: 100%;
+}
+
+.ssdiff td {
+    font: 75% monospace;
+    white-space: pre;
+    padding: 1px 4px;
+    border-inline: solid 1px #aaa;
+}
+
+.ssdiff .add {
+    color: black;
+    background: #cfc;
+    min-width: 50%;
+}
+
+.ssdiff .del {
+    color: black;
+    background: #fcc;
+    min-width: 50%;
+}
+
+.ssdiff .lineno {
+    color: black;
+    background: #eee;
+    text-align: right;
+    width: 3em;
+    min-width: 3em;
+}
+
+.ssdiff .hunk {
+    color: black;
+    background: #ccf;
+    border-block: solid 1px #aaa;
+}
+
+.diff {
+    width: 100%;
+}
+
+.diff td {
+    font-family: monospace;
+    white-space: pre;
+}
+
+.head {
+    font-weight: bold;
+    margin-top: 1em;
+    color: black;
+}
+
+.hunk {
+    color: #009;
+}
+
+.diff .add {
+    color: green;
+}
+
+.diff .del {
+    color: red;
+}
+
+.ctx {
+    color: black;
+}
+
+.cpy,
+.mov,
+.typ,
+.stg,
+.unk {
+    color: black;
+}

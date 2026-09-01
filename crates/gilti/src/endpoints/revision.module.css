@@ -1,0 +1,50 @@
+/* SPDX-FileCopyrightText: 2026 Nikolay Govorov
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+
+.subject {
+    margin: 1.5em 0 .5em;
+    font-size: 125%;
+    font-weight: bold;
+}
+
+.message {
+    white-space: pre;
+    font-family: monospace;
+}
+
+.notes {
+    white-space: pre;
+}
+
+.info {
+    margin-top: 1.5em;
+}
+
+.info th {
+    text-align: left;
+    font-weight: normal;
+    padding: .1em 1em .1em .1em;
+    vertical-align: top;
+}
+
+.info td {
+    padding: .1em 1em .1em .1em;
+}
+
+.right {
+    text-align: right;
+}
+
+.oid {
+    font-family: monospace;
+    font-size: 90%;
+}
+
+.notes-header {
+    font-weight: bold;
+    padding-top: 1.5em;
+}
+
+.notes-footer {
+    clear: left;
+}
