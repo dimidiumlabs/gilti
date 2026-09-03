@@ -78,7 +78,7 @@ start() {
         sleep 1
     done
     i=0
-    until ssh-keyscan -p "$ssh_port" 127.0.0.1 >/dev/null 2>&1; do
+    until ssh-keyscan -t ed25519 -p "$ssh_port" 127.0.0.1 >/dev/null 2>&1; do
         i=$((i + 1))
         [ "$i" -lt 30 ] || { "$engine" logs "$name" >&2; return 1; }
         sleep 1
@@ -114,10 +114,25 @@ status=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$http
     echo "POST to repository browser returned HTTP $status instead of 405" >&2
     exit 1
 }
-global_stylesheet=$work/global.css
-app_stylesheet=$work/app.css
-curl -fsS "http://127.0.0.1:$http_port/-/assets/global.css" -o "$global_stylesheet"
-curl -fsS "http://127.0.0.1:$http_port/-/assets/app.css" -o "$app_stylesheet"
+# The empty repository index is 404, so seed a temporary entry before inspecting its HTML.
+"$engine" exec --user 10000:10000 "$name" \
+    git init --bare -q /var/lib/gilti/git/repositories/assets-probe.git
+document=$work/document.html
+curl -fsS "http://127.0.0.1:$http_port/" -o "$document"
+foundation_asset=$(grep -Eo '/-/assets/foundation\.[0-9a-f]{16}\.css' "$document" | head -n 1)
+application_asset=$(grep -Eo '/-/assets/application\.[0-9a-f]{16}\.css' "$document" | head -n 1)
+script_asset=$(grep -Eo '/-/assets/application\.[0-9a-f]{16}\.js' "$document" | head -n 1)
+for asset in "$foundation_asset" "$application_asset" "$script_asset"; do
+    [ -n "$asset" ] || {
+        echo 'document is missing a fingerprinted CSS or JavaScript asset URL' >&2
+        exit 1
+    }
+done
+
+global_stylesheet=$work/foundation.css
+app_stylesheet=$work/application.css
+curl -fsS "http://127.0.0.1:$http_port$foundation_asset" -o "$global_stylesheet"
+curl -fsS "http://127.0.0.1:$http_port$application_asset" -o "$app_stylesheet"
 grep -q 'IBM Plex Sans' "$global_stylesheet" || {
     echo 'shared stylesheet is missing IBM Plex Sans' >&2
     exit 1
@@ -130,31 +145,38 @@ grep -q 'padding:4px' "$app_stylesheet" || {
     echo 'application stylesheet is missing the Gilti theme' >&2
     exit 1
 }
-asset_headers=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/app.css")
+asset_headers=$(curl -fsSI "http://127.0.0.1:$http_port$application_asset")
 content_type=$(printf '%s\n' "$asset_headers" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
 [ "$content_type" = 'text/css; charset=utf-8' ] || {
-    echo "unexpected app.css content type: $content_type" >&2
+    echo "unexpected application stylesheet content type: $content_type" >&2
     exit 1
 }
-printf '%s\n' "$asset_headers" | grep -qi '^content-security-policy:'
+printf '%s\n' "$asset_headers" | grep -qi '^cache-control: public, max-age=31536000, immutable'
+if printf '%s\n' "$asset_headers" | grep -qi '^content-security-policy:'; then
+    echo 'asset response unexpectedly includes an HTML content security policy' >&2
+    exit 1
+fi
+curl -fsSI "http://127.0.0.1:$http_port/" | grep -qi '^content-security-policy:'
 etag=$(printf '%s\n' "$asset_headers" |
     awk -F ': ' 'tolower($1) == "etag" { gsub("\\r", "", $2); print $2 }')
 [ -n "$etag" ] || {
-    echo 'app.css has no ETag' >&2
+    echo 'application stylesheet has no ETag' >&2
     exit 1
 }
 status=$(curl -sS -o /dev/null -w '%{http_code}' -H "If-None-Match: $etag" \
-    "http://127.0.0.1:$http_port/-/assets/app.css")
+    "http://127.0.0.1:$http_port$application_asset")
 [ "$status" = 304 ] || {
-    echo "conditional app.css returned HTTP $status instead of 304" >&2
+    echo "conditional application stylesheet returned HTTP $status instead of 304" >&2
     exit 1
 }
-curl -fsS "http://127.0.0.1:$http_port/-/assets/app.js" | grep -q 'function'
-content_type=$(curl -fsSI "http://127.0.0.1:$http_port/-/assets/app.js" |
+application_script=$work/application.js
+curl -fsS "http://127.0.0.1:$http_port$script_asset" -o "$application_script"
+grep -q 'function' "$application_script"
+content_type=$(curl -fsSI "http://127.0.0.1:$http_port$script_asset" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
 [ "$content_type" = 'text/javascript; charset=utf-8' ] || {
-    echo "unexpected app.js content type: $content_type" >&2
+    echo "unexpected application script content type: $content_type" >&2
     exit 1
 }
 font_headers=$(curl -fsSI \
@@ -168,8 +190,12 @@ curl -fsSI "http://127.0.0.1:$http_port/-/assets/favicon.svg" >/dev/null
 curl -fsSI "http://127.0.0.1:$http_port/-/assets/manifest.webmanifest" >/dev/null
 curl -fsSI "http://127.0.0.1:$http_port/-/assets/icon-192.png" >/dev/null
 curl -fsSI "http://127.0.0.1:$http_port/-/assets/icon-512.png" >/dev/null
-curl -fsS "http://127.0.0.1:$http_port/-/licenses.json" | grep -q 'OFL-1.1'
+licenses=$work/licenses.json
+curl -fsS "http://127.0.0.1:$http_port/-/licenses.json" -o "$licenses"
+grep -q 'OFL-1.1' "$licenses"
 curl -fsSI "http://127.0.0.1:$http_port/-/health" >/dev/null
+"$engine" exec --user 10000:10000 "$name" \
+    rm -rf /var/lib/gilti/git/repositories/assets-probe.git
 
 # shellcheck disable=SC2016 # Expanded by the shell inside the container.
 httpd_uid=$("$engine" exec "$name" sh -c '
@@ -348,10 +374,10 @@ cat "$work/admin.pub" >"$authorized_keys"
 # shellcheck disable=SC2086
 ssh $ssh_opts_2 git@127.0.0.1 | grep -q 'Gilti: authenticated'
 
-fingerprint=$(ssh-keyscan -p "$ssh_port" 127.0.0.1 2>/dev/null | ssh-keygen -lf - | awk '{print $2}')
+fingerprint=$(ssh-keyscan -t ed25519 -p "$ssh_port" 127.0.0.1 2>/dev/null | ssh-keygen -lf - | awk '{print $2}')
 remove_container
 start
-fingerprint_after=$(ssh-keyscan -p "$ssh_port" 127.0.0.1 2>/dev/null | ssh-keygen -lf - | awk '{print $2}')
+fingerprint_after=$(ssh-keyscan -t ed25519 -p "$ssh_port" 127.0.0.1 2>/dev/null | ssh-keygen -lf - | awk '{print $2}')
 [ "$fingerprint" = "$fingerprint_after" ] || {
     echo 'SSH host key changed after restart' >&2
     exit 1

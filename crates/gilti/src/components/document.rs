@@ -4,8 +4,7 @@
 use maud::{Markup, Render, html};
 
 pub fn render(title: &str, body: Markup) -> Markup {
-    dimidiumlabs_ui::Document::new(title, body)
-        .with_script()
+    dimidiumlabs_ui::Document::new(title, body, &crate::ASSETS)
         .with_manifest()
         .with_svg_icon()
         .with_apple_touch_icon()
@@ -21,5 +20,9 @@ mod tests {
     fn includes_gilti_generator_metadata() {
         let document = super::render("Gilti", html! { main { "content" } }).into_string();
         assert!(document.contains("<meta name=\"generator\" content=\"Gilti\">"));
+        for asset in crate::ASSETS.stylesheets().chain(crate::ASSETS.scripts()) {
+            assert!(document.contains(asset.fingerprinted_name()));
+            assert!(document.contains(asset.integrity()));
+        }
     }
 }

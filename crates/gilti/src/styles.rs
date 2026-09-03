@@ -6,7 +6,11 @@ pub mod classes {
     include!(concat!(env!("OUT_DIR"), "/css_modules.rs"));
 }
 
-pub const STYLESHEET: &str = include_str!(concat!(env!("OUT_DIR"), "/stylesheet.css"));
+mod generated_assets {
+    include!(concat!(env!("OUT_DIR"), "/assets.rs"));
+}
+
+pub const APPLICATION: &[dimidiumlabs_ui::Asset] = generated_assets::APPLICATION;
 
 #[cfg(test)]
 mod tests {
@@ -46,11 +50,16 @@ mod tests {
 
     #[test]
     fn generated_stylesheet_separates_palette_and_scoped_components() {
-        assert!(!super::STYLESHEET.contains("body{"));
-        assert!(super::STYLESHEET.starts_with("@layer global,components;"));
-        assert!(super::STYLESHEET.contains("@layer global{:root{--color-"));
-        assert!(super::STYLESHEET.contains("@layer components{"));
-        assert!(super::STYLESHEET.contains("_root"));
+        let stylesheet = super::APPLICATION
+            .iter()
+            .find(|asset| asset.kind() == dimidiumlabs_ui::AssetKind::Stylesheet)
+            .unwrap();
+        let stylesheet = std::str::from_utf8(stylesheet.bytes()).unwrap();
+        assert!(!stylesheet.contains("body{"));
+        assert!(stylesheet.starts_with("@layer global,components;"));
+        assert!(stylesheet.contains("@layer global{:root{--color-"));
+        assert!(stylesheet.contains("@layer components{"));
+        assert!(stylesheet.contains("_root"));
     }
 
     #[test]

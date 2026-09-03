@@ -15,11 +15,11 @@ repository.workspace = true
 rust-version.workspace = true
 
 [build-dependencies]
-dimidiumlabs-ui-build = { git = "https://git.dimidiumlabs.io/platform.git", rev = "14b537a5d8373d8cdd1ad8dd5248e1f3f6a5147b" }
+dimidiumlabs-ui-build = { git = "https://git.dimidiumlabs.io/platform.git", rev = "e6b7becea47feec6188ebcfd2cec179762be4b2d" }
 
 [dependencies]
-dimidiumlabs-ui = { git = "https://git.dimidiumlabs.io/platform.git", rev = "14b537a5d8373d8cdd1ad8dd5248e1f3f6a5147b" }
-dimidiumlabs-server = { git = "https://git.dimidiumlabs.io/platform.git", rev = "14b537a5d8373d8cdd1ad8dd5248e1f3f6a5147b" }
+dimidiumlabs-ui = { git = "https://git.dimidiumlabs.io/platform.git", rev = "e6b7becea47feec6188ebcfd2cec179762be4b2d" }
+dimidiumlabs-server = { git = "https://git.dimidiumlabs.io/platform.git", rev = "e6b7becea47feec6188ebcfd2cec179762be4b2d" }
 
 axum.workspace = true
 libc.workspace = true
@@ -33,3 +33,4 @@ serde_json.workspace = true
 gilti-git = { path = "../git" }
 tokio-util.workspace = true
 futures-util.workspace = true
+hyper-util.workspace = true

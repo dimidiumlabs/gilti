@@ -235,6 +235,7 @@ impl HttpBackend {
             reap(&mut child).await;
             return Err(BackendError::Io(error.to_string()));
         }
+        drop(stdin);
         let mut stdout = child
             .stdout
             .take()
@@ -341,43 +342,40 @@ mod tests {
         }
     }
 
-    fn fixture(contents: &str) -> std::path::PathBuf {
-        use std::os::unix::fs::PermissionsExt;
-        let path = std::env::temp_dir().join(format!(
-            "gilti-backend-{}-{}.sh",
-            std::process::id(),
-            contents.len()
-        ));
-        std::fs::write(&path, contents).unwrap();
-        let mut permissions = std::fs::metadata(&path).unwrap().permissions();
-        permissions.set_mode(0o700);
-        std::fs::set_permissions(&path, permissions).unwrap();
-        path
+    fn shell_request(script: &str) -> super::BackendRequest {
+        super::BackendRequest {
+            body: Box::pin(std::io::Cursor::new(script.as_bytes().to_vec())),
+            ..request()
+        }
     }
 
     #[tokio::test]
     async fn streams_body_and_waits_for_success() {
         use tokio::io::AsyncReadExt;
-        let path = fixture("#!/bin/sh\nprintf 'Content-Type: text/plain\\r\\n\\r\\nhello'");
-        let backend =
-            super::HttpBackend::new(&path, "/", std::net::SocketAddr::from(([127, 0, 0, 1], 80)));
-        let mut response = backend.execute(request()).await.unwrap();
+        let backend = super::HttpBackend::new(
+            "/bin/sh",
+            "/",
+            std::net::SocketAddr::from(([127, 0, 0, 1], 80)),
+        );
+        let script = "printf 'Content-Type: text/plain\\r\\n\\r\\nhello'";
+        let mut response = backend.execute(shell_request(script)).await.unwrap();
         let mut body = Vec::new();
         response.body.read_to_end(&mut body).await.unwrap();
         assert_eq!(body, b"hello");
-        let _ = std::fs::remove_file(path);
     }
 
     #[tokio::test]
     async fn nonzero_exit_is_stream_error() {
         use tokio::io::AsyncReadExt;
-        let path = fixture("#!/bin/sh\nprintf 'Content-Type: text/plain\\r\\n\\r\\nhello'\nexit 3");
-        let backend =
-            super::HttpBackend::new(&path, "/", std::net::SocketAddr::from(([127, 0, 0, 1], 80)));
-        let mut response = backend.execute(request()).await.unwrap();
+        let backend = super::HttpBackend::new(
+            "/bin/sh",
+            "/",
+            std::net::SocketAddr::from(([127, 0, 0, 1], 80)),
+        );
+        let script = "printf 'Content-Type: text/plain\\r\\n\\r\\nhello'\nexit 3";
+        let mut response = backend.execute(shell_request(script)).await.unwrap();
         let mut body = Vec::new();
         assert!(response.body.read_to_end(&mut body).await.is_err());
-        let _ = std::fs::remove_file(path);
     }
 
     #[tokio::test]

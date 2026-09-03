@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 fn main() {
-    dimidiumlabs_ui_build::build().expect("failed to compile UI assets");
+    dimidiumlabs_ui_build::build(
+        "APPLICATION",
+        &["src/styles", "src/components", "src/endpoints"],
+        &["src/assets"],
+    )
+    .expect("failed to compile UI assets");
     println!("cargo::rerun-if-changed=../../Cargo.lock");
     println!("cargo::rerun-if-changed=../../mise.toml");
     println!("cargo::rerun-if-changed=../../mise.lock");
