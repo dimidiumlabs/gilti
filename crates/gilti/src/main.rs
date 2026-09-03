@@ -13,10 +13,11 @@ mod licenses {
 }
 
 use dimidiumlabs_server::{
-    assets_router,
+    HtmlCompressionPredicate, assets_router,
     service::{
         AdmissionLayer, ClientIpLayer, DrainLayer, ForwardedHeader, HtmlLayer, PeerAddr,
         TrustedProxies,
+        compression::{CompressionLayer, CompressionLevel},
     },
     transport::{HttpTransport, TransportPolicyError},
 };
@@ -31,6 +32,8 @@ const HTTP1_MAX_BUFFER_BYTES: usize = 32 * 1024;
 const HTTP2_MAX_CONCURRENT_STREAMS: u32 = 64;
 const HTTP2_MAX_HEADER_LIST_BYTES: u32 = 16 * 1024;
 const REQUEST_BODY_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+const DYNAMIC_COMPRESSION_MIN_BYTES: u16 = 128;
+const DYNAMIC_COMPRESSION_LEVEL: CompressionLevel = CompressionLevel::Precise(5);
 const MAX_CONCURRENT_REQUESTS: usize = 64;
 const MAX_QUEUED_REQUESTS: usize = 128;
 const ADMISSION_WAIT: std::time::Duration = std::time::Duration::from_secs(1);
@@ -154,8 +157,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )
             }),
         );
-    let app = axum::Router::new()
-        .merge(ui)
+    let browser = axum::Router::new()
         .route(
             "/-/about",
             axum::routing::get(async || {
@@ -169,7 +171,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }),
         )
         .fallback_service(repositories)
-        .layer(HtmlLayer::new(&ASSETS));
+        .layer(HtmlLayer::new(&ASSETS).with_negotiated_compression())
+        .layer(
+            CompressionLayer::new()
+                .quality(DYNAMIC_COMPRESSION_LEVEL)
+                .compress_when(HtmlCompressionPredicate::new(DYNAMIC_COMPRESSION_MIN_BYTES)),
+        );
+    let app = browser.merge(ui);
 
     let (app, drain_handle, transport) = harden(app)?;
     // Keep the shared liveness/readiness endpoint independent from application

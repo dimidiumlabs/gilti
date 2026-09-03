@@ -15,11 +15,11 @@ repository.workspace = true
 rust-version.workspace = true
 
 [build-dependencies]
-dimidiumlabs-ui-build = { git = "https://git.dimidiumlabs.io/platform.git", rev = "e6b7becea47feec6188ebcfd2cec179762be4b2d" }
+dimidiumlabs-ui-build = { git = "https://git.dimidiumlabs.io/platform.git", rev = "53c91185b6dfd11cb803e88e1fe200bf6a44960b" }
 
 [dependencies]
-dimidiumlabs-ui = { git = "https://git.dimidiumlabs.io/platform.git", rev = "e6b7becea47feec6188ebcfd2cec179762be4b2d" }
-dimidiumlabs-server = { git = "https://git.dimidiumlabs.io/platform.git", rev = "e6b7becea47feec6188ebcfd2cec179762be4b2d" }
+dimidiumlabs-ui = { git = "https://git.dimidiumlabs.io/platform.git", rev = "53c91185b6dfd11cb803e88e1fe200bf6a44960b" }
+dimidiumlabs-server = { git = "https://git.dimidiumlabs.io/platform.git", rev = "53c91185b6dfd11cb803e88e1fe200bf6a44960b" }
 
 axum.workspace = true
 libc.workspace = true

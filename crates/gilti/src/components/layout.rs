@@ -33,7 +33,7 @@ impl Render for Layout<'_> {
             div class=(layout::ROOT) {
                 header class=(layout::HEADER) {
                     a class=(layout::LOGO) href="/" {
-                        img src=(dimidiumlabs_ui::FAVICON_SVG_PATH) alt="gilti logo";
+                        img src=(dimidiumlabs_ui::FAVICON_SVG_PATH) width="48" height="48" alt="gilti logo";
                     }
                     h1 class=(layout::TITLE) {
                         (self.root_title)

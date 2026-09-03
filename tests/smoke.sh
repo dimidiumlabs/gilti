@@ -145,6 +145,35 @@ grep -q 'padding:4px' "$app_stylesheet" || {
     echo 'application stylesheet is missing the Gilti theme' >&2
     exit 1
 }
+html_headers=$(curl -fsSI -H 'Accept-Encoding: gzip' "http://127.0.0.1:$http_port/")
+printf '%s\n' "$html_headers" | grep -qi '^content-encoding: gzip'
+printf '%s\n' "$html_headers" | grep -qi '^vary:.*accept-encoding'
+html_etag=$(printf '%s\n' "$html_headers" |
+    awk -F ': ' 'tolower($1) == "etag" { gsub("\\r", "", $2); print $2 }')
+case "$html_etag" in
+W/\"*\") ;;
+*)
+    echo "dynamic HTML has a non-weak ETag: $html_etag" >&2
+    exit 1
+    ;;
+esac
+if printf '%s\n' "$html_headers" | grep -qi '^content-length:'; then
+    echo 'runtime-compressed HTML unexpectedly has Content-Length' >&2
+    exit 1
+fi
+conditional_html_headers=$work/conditional-html.headers
+status=$(curl -sS -o /dev/null -D "$conditional_html_headers" -w '%{http_code}' \
+    -H 'Accept-Encoding: br' -H "If-None-Match: $html_etag" \
+    "http://127.0.0.1:$http_port/")
+[ "$status" = 304 ] || {
+    echo "conditional compressed HTML returned HTTP $status instead of 304" >&2
+    exit 1
+}
+grep -qi '^vary:.*accept-encoding' "$conditional_html_headers"
+if grep -qi '^content-length:' "$conditional_html_headers"; then
+    echo 'conditional HTML unexpectedly has Content-Length' >&2
+    exit 1
+fi
 asset_headers=$(curl -fsSI "http://127.0.0.1:$http_port$application_asset")
 content_type=$(printf '%s\n' "$asset_headers" |
     awk -F ': ' 'tolower($1) == "content-type" { gsub("\\r", "", $2); print $2 }')
@@ -164,12 +193,52 @@ etag=$(printf '%s\n' "$asset_headers" |
     echo 'application stylesheet has no ETag' >&2
     exit 1
 }
+case "$etag" in
+W/*)
+    echo "identity stylesheet has a weak ETag: $etag" >&2
+    exit 1
+    ;;
+esac
+compressed_stylesheet=$work/application.br.css
+compressed_asset_headers=$work/application.br.headers
+curl -fsS --compressed -H 'Accept-Encoding: br' -D "$compressed_asset_headers" \
+    "http://127.0.0.1:$http_port$application_asset" -o "$compressed_stylesheet"
+cmp "$app_stylesheet" "$compressed_stylesheet"
+grep -qi '^content-encoding: br' "$compressed_asset_headers"
+grep -qi '^vary:.*accept-encoding' "$compressed_asset_headers"
+compressed_etag=$(awk -F ': ' \
+    'tolower($1) == "etag" { gsub("\\r", "", $2); print $2 }' "$compressed_asset_headers")
+[ -n "$compressed_etag" ] && [ "$compressed_etag" != "$etag" ] || {
+    echo 'compressed stylesheet does not have a distinct strong ETag' >&2
+    exit 1
+}
 status=$(curl -sS -o /dev/null -w '%{http_code}' -H "If-None-Match: $etag" \
     "http://127.0.0.1:$http_port$application_asset")
 [ "$status" = 304 ] || {
     echo "conditional application stylesheet returned HTTP $status instead of 304" >&2
     exit 1
 }
+conditional_asset_headers=$work/conditional-asset.headers
+status=$(curl -sS -o /dev/null -D "$conditional_asset_headers" -w '%{http_code}' \
+    -H 'Accept-Encoding: br' -H "If-None-Match: $compressed_etag" \
+    "http://127.0.0.1:$http_port$application_asset")
+[ "$status" = 304 ] || {
+    echo "conditional Brotli stylesheet returned HTTP $status instead of 304" >&2
+    exit 1
+}
+grep -qi '^content-encoding: br' "$conditional_asset_headers"
+grep -qi '^vary:.*accept-encoding' "$conditional_asset_headers"
+if grep -qi '^content-length:' "$conditional_asset_headers"; then
+    echo 'conditional stylesheet unexpectedly has Content-Length' >&2
+    exit 1
+fi
+range_headers=$work/range-asset.headers
+curl -fsS -o /dev/null -D "$range_headers" -H 'Accept-Encoding: br' \
+    -H 'Range: bytes=0-10' "http://127.0.0.1:$http_port$application_asset"
+if grep -qi '^content-encoding:' "$range_headers"; then
+    echo 'range request unexpectedly selected an encoded stylesheet' >&2
+    exit 1
+fi
 application_script=$work/application.js
 curl -fsS "http://127.0.0.1:$http_port$script_asset" -o "$application_script"
 grep -q 'function' "$application_script"
@@ -179,10 +248,14 @@ content_type=$(curl -fsSI "http://127.0.0.1:$http_port$script_asset" |
     echo "unexpected application script content type: $content_type" >&2
     exit 1
 }
-font_headers=$(curl -fsSI \
+font_headers=$(curl -fsSI -H 'Accept-Encoding: br' \
     "http://127.0.0.1:$http_port/-/assets/fonts/ibm-plex-mono-variable-1.0.0-roman.woff2")
 printf '%s\n' "$font_headers" | grep -qi '^content-type: font/woff2'
 printf '%s\n' "$font_headers" | grep -qi '^cache-control: public, max-age=31536000, immutable'
+if printf '%s\n' "$font_headers" | grep -qi '^content-encoding:'; then
+    echo 'WOFF2 asset unexpectedly received HTTP content encoding' >&2
+    exit 1
+fi
 curl -fsSI "http://127.0.0.1:$http_port/favicon.ico" >/dev/null
 curl -fsSI "http://127.0.0.1:$http_port/apple-touch-icon.png" >/dev/null
 curl -fsSI "http://127.0.0.1:$http_port/robots.txt" >/dev/null
@@ -352,6 +425,13 @@ for format in tar tar.gz tar.bz2 tar.lz tar.xz tar.zst zip; do
         exit 1
     }
 done
+archive_headers=$work/archive.headers
+curl -fsS -o /dev/null -D "$archive_headers" -H 'Accept-Encoding: br' \
+    "http://127.0.0.1:$http_port/testing/+/HEAD/+/archive?format=tar"
+if grep -qi '^content-encoding:' "$archive_headers"; then
+    echo 'archive unexpectedly received HTTP content encoding' >&2
+    exit 1
+fi
 summary_status=$(curl -sS -o /dev/null -w '%{http_code}:%{redirect_url}' \
     "http://127.0.0.1:$http_port/testing/+/summary")
 [ "$summary_status" = "308:http://127.0.0.1:$http_port/testing" ] || {
@@ -362,9 +442,15 @@ GIT_CONFIG_GLOBAL=/dev/null git clone -q \
     "http://127.0.0.1:$http_port/testing.git" "$work/testing-http-clone"
 [ -f "$work/testing-http-clone/README.md" ]
 lfs_oid=2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881
+lfs_headers=$work/lfs.headers
 lfs_response=$(printf '{"operation":"download","objects":[{"oid":"%s","size":1}]}' "$lfs_oid" |
-    curl -fsS -H 'Content-Type: application/vnd.git-lfs+json' --data-binary @- \
+    curl -fsS -D "$lfs_headers" -H 'Accept-Encoding: br' \
+        -H 'Content-Type: application/vnd.git-lfs+json' --data-binary @- \
         "http://127.0.0.1:$http_port/testing.git/info/lfs/objects/batch")
+if grep -qi '^content-encoding:' "$lfs_headers"; then
+    echo 'LFS response unexpectedly received HTTP content encoding' >&2
+    exit 1
+fi
 printf '%s' "$lfs_response" | grep -q '"code":404' || {
     echo 'unexpected LFS batch response' >&2
     exit 1
