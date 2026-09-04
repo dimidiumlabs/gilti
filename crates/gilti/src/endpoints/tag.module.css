@@ -9,10 +9,10 @@
 
 .message {
     white-space: pre;
-    font-family: monospace;
+    font-family: var(--font-family-mono);
 }
 
 .oid {
-    font-family: monospace;
+    font-family: var(--font-family-mono);
     font-size: 90%;
 }

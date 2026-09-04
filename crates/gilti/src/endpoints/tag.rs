@@ -22,9 +22,9 @@ pub async fn serve(
     let crate::router::Revision::Ref(reference) = route.params else {
         return super::error(gilti_git::Error::NotFound);
     };
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
     let model = tokio::task::spawn_blocking(move || {
-        gilti_git::tag::Tag::load(std::path::Path::new(repositories), &route.repo, reference)
+        gilti_git::tag::Tag::load(repositories.as_path(), &route.repo, reference)
     })
     .await;
     let model = match model {
@@ -34,7 +34,11 @@ pub async fn serve(
             return super::error(gilti_git::Error::Internal(error.to_string()));
         }
     };
-    let content = Page { model: &model }.render();
+    let content = Page {
+        model: &model,
+        archive_formats: &context.archive_formats,
+    }
+    .render();
     super::shared::render(
         context,
         &model.repository,
@@ -47,14 +51,18 @@ pub async fn serve(
 
 struct Page<'a> {
     model: &'a gilti_git::tag::Tag,
+    archive_formats: &'a [gilti_git::archive::Format],
 }
 impl Render for Page<'_> {
     fn render(&self) -> Markup {
-        content(self.model)
+        content(self.model, self.archive_formats)
     }
 }
 
-pub fn content(model: &gilti_git::tag::Tag) -> Markup {
+pub fn content(
+    model: &gilti_git::tag::Tag,
+    archive_formats: &[gilti_git::archive::Format],
+) -> Markup {
     let repo = crate::endpoints::shared::repository_url(&model.repository.name);
     let revision = crate::endpoints::shared::encode_path(&model.reference);
     let mut metadata = vec![KeyValue {
@@ -89,11 +97,11 @@ pub fn content(model: &gilti_git::tag::Tag) -> Markup {
             }
         } },
     });
-    if model.downloadable {
+    if model.downloadable && !archive_formats.is_empty() {
         metadata.push(KeyValue {
             key: "download",
             value: html! { span class=(tag::OID) {
-                @for format in ["tar", "tar.gz", "tar.bz2", "tar.lz", "tar.xz", "tar.zst", "zip"] {
+                @for format in archive_formats {
                     a href=(format!("{repo}/+/{revision}/+/archive?format={format}")) { (format) }
                     " "
                 }

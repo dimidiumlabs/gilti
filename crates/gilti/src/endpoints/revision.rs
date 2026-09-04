@@ -10,16 +10,11 @@ pub async fn serve(
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
     let name = route.repo.clone();
     let revision = route.params.clone();
     let model = tokio::task::spawn_blocking(move || {
-        gilti_git::commit::Commit::load(
-            std::path::Path::new(repositories),
-            &name,
-            revision,
-            query.options(),
-        )
+        gilti_git::commit::Commit::load(repositories.as_path(), &name, revision, query.options())
     })
     .await;
     let model = match model {
@@ -30,6 +25,8 @@ pub async fn serve(
     let content = Page {
         model: &model,
         query,
+        archive_formats: &context.archive_formats,
+        abbreviated_oid_chars: context.browser.abbreviated_oid_chars,
     }
     .render();
     super::shared::render_with_options(
@@ -39,7 +36,10 @@ pub async fn serve(
         super::shared::Page::Revision,
         super::shared::RenderOptions {
             page_title: Some(&model.subject),
-            sidebar: Some(crate::endpoints::diff::options_sidebar(query)),
+            sidebar: Some(crate::endpoints::diff::options_sidebar(
+                query,
+                &context.browser,
+            )),
             ..Default::default()
         },
         content,
@@ -61,14 +61,26 @@ use crate::{
 struct Page<'a> {
     model: &'a gilti_git::commit::Commit,
     query: crate::endpoints::diff::Query,
+    archive_formats: &'a [gilti_git::archive::Format],
+    abbreviated_oid_chars: usize,
 }
 impl Render for Page<'_> {
     fn render(&self) -> Markup {
-        content(self.model, self.query)
+        content(
+            self.model,
+            self.query,
+            self.archive_formats,
+            self.abbreviated_oid_chars,
+        )
     }
 }
 
-pub fn content(model: &gilti_git::commit::Commit, query: crate::endpoints::diff::Query) -> Markup {
+pub fn content(
+    model: &gilti_git::commit::Commit,
+    query: crate::endpoints::diff::Query,
+    archive_formats: &[gilti_git::archive::Format],
+    abbreviated_oid_chars: usize,
+) -> Markup {
     let repo = crate::endpoints::shared::repository_url(&model.repository.name);
     let revision = crate::endpoints::shared::encode_path(&model.revision);
     let patch_old = model.parents.first().map_or("HEAD", String::as_str);
@@ -106,15 +118,17 @@ pub fn content(model: &gilti_git::commit::Commit, query: crate::endpoints::diff:
             " (" a href=(format!("{repo}/+/diff/{parent}..{}", model.oid)) { "diff" } ")"
         } },
     }));
-    metadata.push(KeyValue {
-        key: "download",
-        value: html! { span class=(revision::OID) {
-            @for format in ["tar", "tar.gz", "tar.bz2", "tar.lz", "tar.xz", "tar.zst", "zip"] {
-                a href=(format!("{repo}/+/{revision}/+/archive?format={format}")) { (format) }
-                " "
-            }
-        } },
-    });
+    if !archive_formats.is_empty() {
+        metadata.push(KeyValue {
+            key: "download",
+            value: html! { span class=(revision::OID) {
+                @for format in archive_formats {
+                    a href=(format!("{repo}/+/{revision}/+/archive?format={format}")) { (format) }
+                    " "
+                }
+            } },
+        });
+    }
     html! { div {
         (KeyValueList { label: "commit info", items: metadata })
 
@@ -139,7 +153,12 @@ pub fn content(model: &gilti_git::commit::Commit, query: crate::endpoints::diff:
         }
 
         @if let Some(diff) = &model.diff {
-            (crate::components::diff::Diff { model: diff, mode: query.mode, path: None }.render())
+            (crate::components::diff::Diff {
+                model: diff,
+                mode: query.mode,
+                path: None,
+                abbreviated_oid_chars,
+            }.render())
         }
     } }
 }

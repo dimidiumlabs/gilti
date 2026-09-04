@@ -34,6 +34,8 @@ impl Blame {
         name: &str,
         revision: crate::Revision,
         path: String,
+        binary_detection_bytes: usize,
+        abbreviated_oid_chars: usize,
     ) -> Result<Self, super::Error> {
         let repository = super::repository::open(root, name)?;
         let info = super::repository::info(&repository, name);
@@ -50,7 +52,10 @@ impl Blame {
             .find_blob(entry.id())
             .map_err(super::Error::from_git)?;
         let bytes = blob.content().to_vec();
-        let binary = bytes.iter().take(8000).any(|byte| *byte == 0);
+        let binary = bytes
+            .iter()
+            .take(binary_detection_bytes)
+            .any(|byte| *byte == 0);
         let mut hunks = Vec::new();
         if !binary {
             let mut options = git2::BlameOptions::new();
@@ -67,7 +72,11 @@ impl Blame {
                 let committer = hunk.final_committer().unwrap_or_else(|| commit.committer());
                 hunks.push(Hunk {
                     oid: oid.to_string(),
-                    short_oid: oid.to_string().chars().take(7).collect(),
+                    short_oid: oid
+                        .to_string()
+                        .chars()
+                        .take(abbreviated_oid_chars)
+                        .collect(),
                     start: hunk.final_start_line(),
                     lines: hunk.lines_in_hunk(),
                     original_path: hunk

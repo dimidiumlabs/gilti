@@ -8,23 +8,34 @@ image:
     tag: ""
     digest: ""
     pullPolicy: IfNotPresent
-
 imagePullSecrets: []
+
 nameOverride: ""
 fullnameOverride: ""
 
 ssh:
+    # Expose authenticated Git access through the bundled OpenSSH server.
+    enabled: true
     # Every listed key has read/write access to every repository.
     authorizedKeys: []
 
 web:
     rootTitle: Gilti
-    rootDescription: A tiny Git server
+    rootDescription: A small, fast, independent Git server
     clonePrefix: ""
 
 http:
+    # HTTP authorities accepted by Gilti. An empty list disables host filtering.
+    hostnames: []
     # Allow unauthenticated Git receive-pack and LFS uploads.
     write: false
+
+archive:
+    formats: [tar, tar.gz, tar.bz2, tar.xz, tar.zst, zip]
+
+# Advanced typed application settings. Keys use the snake_case names from
+# config/gilti.toml; chart-level web/http/ssh/archive values take precedence.
+config: {}
 
 persistence:
     enabled: true

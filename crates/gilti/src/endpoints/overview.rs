@@ -11,9 +11,12 @@ pub async fn serve(
         return super::method_not_allowed();
     }
     let clone_url = clone_url(context, headers, &route.repo);
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
+    let name = route.repo;
+    let max_refs = context.browser.summary_refs;
+    let max_commits = context.browser.summary_commits;
     let model = tokio::task::spawn_blocking(move || {
-        gilti_git::overview::Overview::load(std::path::Path::new(repositories), &route.repo)
+        gilti_git::overview::Overview::load(repositories.as_path(), &name, max_refs, max_commits)
     })
     .await;
     let model = match model {
@@ -23,7 +26,7 @@ pub async fn serve(
             return super::error(gilti_git::Error::Internal(error.to_string()));
         }
     };
-    let content = content(&model, &clone_url);
+    let content = content(&model, &clone_url, &context.archive_formats);
     super::shared::render(
         context,
         &model.repository,
@@ -74,7 +77,11 @@ use crate::{
     styles::classes::overview,
 };
 
-pub fn content(model: &gilti_git::overview::Overview, clone_url: &str) -> Markup {
+pub fn content(
+    model: &gilti_git::overview::Overview,
+    clone_url: &str,
+    archive_formats: &[gilti_git::archive::Format],
+) -> Markup {
     let repository_url = crate::urls::repository(&model.repository.name);
     html! { div {
         @if model.empty {
@@ -87,6 +94,7 @@ pub fn content(model: &gilti_git::overview::Overview, clone_url: &str) -> Markup
                     (TagsTable {
                         repository_url: &repository_url,
                         tags: &model.tags,
+                        archive_formats,
                         nowrap: false,
                     })
                 }

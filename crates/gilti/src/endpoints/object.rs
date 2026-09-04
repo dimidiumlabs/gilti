@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 pub async fn serve(
-    repositories: &'static str,
+    context: &super::shared::Context,
     route: crate::router::RepoRoute<String>,
     method: axum::http::Method,
 ) -> axum::response::Response {
@@ -13,11 +13,15 @@ pub async fn serve(
             .body(axum::body::Body::from("method not allowed\n"))
             .expect("static response is valid");
     }
+    let repositories = std::sync::Arc::clone(&context.repositories);
+    let binary_detection_bytes = usize::try_from(context.browser.binary_detection_bytes.as_u64())
+        .expect("binary detection limit fits usize");
     let model = tokio::task::spawn_blocking(move || {
         gilti_git::object::RawObject::load(
-            std::path::Path::new(repositories),
+            repositories.as_path(),
             &route.repo,
             &route.params,
+            binary_detection_bytes,
         )
     })
     .await;

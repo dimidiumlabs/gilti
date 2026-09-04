@@ -9,14 +9,22 @@ pub struct RawObject {
 }
 
 impl RawObject {
-    pub fn load(root: &Path, repository: &str, oid: &str) -> Result<Self, super::Error> {
+    pub fn load(
+        root: &Path,
+        repository: &str,
+        oid: &str,
+        binary_detection_bytes: usize,
+    ) -> Result<Self, super::Error> {
         let repository = super::repository::open(root, repository)?;
         let oid = git2::Oid::from_str_ext(oid, repository.object_format())
             .map_err(|_| super::Error::NotFound)?;
         let odb = repository.odb().map_err(super::Error::from_git)?;
         let object = odb.read(oid).map_err(super::Error::from_git)?;
         let bytes = object.data().to_vec();
-        let binary = bytes.iter().take(8000).any(|byte| *byte == 0);
+        let binary = bytes
+            .iter()
+            .take(binary_detection_bytes)
+            .any(|byte| *byte == 0);
         Ok(Self { bytes, binary })
     }
 }
@@ -44,10 +52,11 @@ mod tests {
             .write(git2::ObjectType::Blob, b"binary\0payload")
             .unwrap();
 
-        let text = super::RawObject::load(&root, "example", &text_oid.to_string()).unwrap();
+        let text = super::RawObject::load(&root, "example", &text_oid.to_string(), 8000).unwrap();
         assert_eq!(text.bytes, b"hello\n");
         assert!(!text.binary);
-        let binary = super::RawObject::load(&root, "example", &binary_oid.to_string()).unwrap();
+        let binary =
+            super::RawObject::load(&root, "example", &binary_oid.to_string(), 8000).unwrap();
         assert_eq!(binary.bytes, b"binary\0payload");
         assert!(binary.binary);
 
@@ -70,7 +79,7 @@ mod tests {
             .unwrap();
         assert_eq!(oid.to_string().len(), 64);
 
-        let object = super::RawObject::load(&root, "example", &oid.to_string()).unwrap();
+        let object = super::RawObject::load(&root, "example", &oid.to_string(), 8000).unwrap();
         assert_eq!(object.bytes, b"sha256\n");
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -79,7 +88,12 @@ mod tests {
     fn missing_object_is_not_found() {
         let (root, _repository) = fixture();
         assert!(matches!(
-            super::RawObject::load(&root, "example", "0000000000000000000000000000000000000000"),
+            super::RawObject::load(
+                &root,
+                "example",
+                "0000000000000000000000000000000000000000",
+                8000,
+            ),
             Err(crate::Error::NotFound)
         ));
         std::fs::remove_dir_all(root).unwrap();

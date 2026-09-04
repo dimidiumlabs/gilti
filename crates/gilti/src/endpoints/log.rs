@@ -20,7 +20,7 @@ pub enum Search {
 }
 
 impl Query {
-    pub fn from_request(query: &crate::RequestQuery) -> Result<Self, ()> {
+    pub fn from_request(query: &crate::daemon::RequestQuery) -> Result<Self, ()> {
         let offset = match query.value("GILTI_QUERY_OFFSET") {
             None => 0,
             Some(value) => value.parse().map_err(|_| ())?,
@@ -111,7 +111,7 @@ pub async fn serve(
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
     let name = route.repo;
     let revision = route.params.rev;
     let path = route.params.path;
@@ -120,18 +120,14 @@ pub async fn serve(
         follow: query.follow,
         search: query.history(),
         offset: query.offset,
-        limit: gilti_git::history::LOG_PAGE_SIZE,
+        limit: context.browser.log_commits_per_page,
         graph: true,
         ignore_whitespace: query.ignore_whitespace,
         include_statistics: true,
     };
+    let git = std::sync::Arc::clone(&context.git);
     let model = tokio::task::spawn_blocking(move || {
-        gilti_git::history::History::load(
-            std::path::Path::new(repositories),
-            &name,
-            revision,
-            options,
-        )
+        gilti_git::history::History::load(&git, repositories.as_path(), &name, revision, options)
     })
     .await;
     let model = match model {
@@ -152,6 +148,7 @@ pub async fn serve(
             model: &model,
             query: &query,
             path: path.as_deref(),
+            page_size: context.browser.log_commits_per_page,
         }
         .render(),
         &method,
@@ -183,12 +180,13 @@ fn query(value: &str) -> String {
 mod tests {
     #[test]
     fn query_is_strict() {
-        assert!(super::Query::from_request(&crate::RequestQuery::default()).is_ok());
-        let query = crate::request_query(Some("follow=2")).unwrap();
+        assert!(super::Query::from_request(&crate::daemon::RequestQuery::default()).is_ok());
+        let query = crate::daemon::request_query(Some("follow=2")).unwrap();
         assert!(super::Query::from_request(&query).is_err());
-        let query = crate::request_query(Some("qt=range&q=-bad")).unwrap();
+        let query = crate::daemon::request_query(Some("qt=range&q=-bad")).unwrap();
         assert!(super::Query::from_request(&query).is_err());
-        let query = crate::request_query(Some("qt=range&q=HEAD..refs%2Fheads%2Fmain")).unwrap();
+        let query =
+            crate::daemon::request_query(Some("qt=range&q=HEAD..refs%2Fheads%2Fmain")).unwrap();
         assert!(super::Query::from_request(&query).is_ok());
     }
 }
@@ -204,10 +202,11 @@ struct LogPage<'a> {
     pub model: &'a gilti_git::history::History,
     pub query: &'a Query,
     pub path: Option<&'a str>,
+    pub page_size: usize,
 }
 impl Render for LogPage<'_> {
     fn render(&self) -> Markup {
-        render_content(self.model, self.query, self.path)
+        render_content(self.model, self.query, self.path, self.page_size)
     }
 }
 
@@ -248,6 +247,7 @@ fn render_content(
     model: &gilti_git::history::History,
     query: &Query,
     path: Option<&str>,
+    page_size: usize,
 ) -> Markup {
     let base = log_url(model, path);
     let expand_url = format!(
@@ -271,8 +271,8 @@ fn render_content(
             branch_suffix,
         })
         ul class=(log::PAGER) {
-            @if query.offset > 0 { li { a href=(format!("{}{}", base, query.suffix(query.offset.saturating_sub(gilti_git::history::LOG_PAGE_SIZE), query.show_message, query.follow))) { "[prev]" } } }
-            @if model.has_next { li { a href=(format!("{}{}", base, query.suffix(query.offset + gilti_git::history::LOG_PAGE_SIZE, query.show_message, query.follow))) { "[next]" } } }
+            @if query.offset > 0 { li { a href=(format!("{}{}", base, query.suffix(query.offset.saturating_sub(page_size), query.show_message, query.follow))) { "[prev]" } } }
+            @if model.has_next { li { a href=(format!("{}{}", base, query.suffix(query.offset + page_size, query.show_message, query.follow))) { "[next]" } } }
         }
     }
 }

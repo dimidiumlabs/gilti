@@ -22,7 +22,7 @@
 .ls-mode,
 .ls-size,
 .hex {
-    font-family: monospace;
+    font-family: var(--font-family-mono);
 }
 
 .ls-dir {
@@ -44,14 +44,14 @@
 }
 
 .bin-blob th {
-    font-family: monospace;
+    font-family: var(--font-family-mono);
     white-space: pre;
     border: solid 1px var(--color-neutral-600);
     padding: .5em 1em;
 }
 
 .bin-blob td {
-    font-family: monospace;
+    font-family: var(--font-family-mono);
     white-space: pre;
     border-left: solid 1px var(--color-neutral-600);
     padding: 0 1em;

@@ -61,7 +61,7 @@
 }
 
 .ssdiff td {
-    font: 75% monospace;
+    font: 75% var(--font-family-mono);
     white-space: pre;
     padding: 1px 4px;
     border-inline: solid 1px var(--color-neutral-400);

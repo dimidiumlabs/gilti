@@ -19,6 +19,7 @@
         "ssh": {
             "type": "object",
             "properties": {
+                "enabled": { "type": "boolean" },
                 "authorizedKeys": {
                     "type": "array",
                     "items": {
@@ -43,7 +44,41 @@
         "http": {
             "type": "object",
             "properties": {
+                "hostnames": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[^\\s,/?#]+$"
+                    }
+                },
                 "write": { "type": "boolean" }
+            }
+        },
+        "archive": {
+            "type": "object",
+            "properties": {
+                "formats": {
+                    "type": "array",
+                    "uniqueItems": true,
+                    "items": {
+                        "enum": ["tar", "tar.gz", "tar.bz2", "tar.xz", "tar.zst", "zip"]
+                    }
+                }
+            }
+        },
+        "config": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "server": { "type": "object" },
+                "instance": { "type": "object" },
+                "git_storage": { "type": "object" },
+                "git": { "type": "object" },
+                "lfs": { "type": "object" },
+                "browser": { "type": "object" },
+                "access": { "type": "object" },
+                "archive": { "type": "object" }
             }
         },
         "persistence": {

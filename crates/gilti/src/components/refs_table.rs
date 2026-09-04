@@ -46,6 +46,7 @@ impl Render for BranchesTable<'_> {
 pub struct TagsTable<'a> {
     pub repository_url: &'a str,
     pub tags: &'a [gilti_git::refs::Tag],
+    pub archive_formats: &'a [gilti_git::archive::Format],
     pub nowrap: bool,
 }
 
@@ -67,8 +68,10 @@ impl Render for TagsTable<'_> {
                         tr {
                             td { a href=(format!("{}/+/{revision}", self.repository_url)) { (&tag.name) } }
                             td {
-                                @if tag.downloadable {
-                                    @for (index, format) in ["tar", "tar.gz", "tar.bz2", "tar.lz", "tar.xz", "tar.zst", "zip"].iter().enumerate() {
+                                @if tag.downloadable && self.archive_formats.is_empty() {
+                                    "—"
+                                } @else if tag.downloadable {
+                                    @for (index, format) in self.archive_formats.iter().enumerate() {
                                         @if index > 0 { "  " }
                                         a href=(format!("{}/+/{revision}/+/archive?format={format}", self.repository_url)) { (format) }
                                     }

@@ -54,26 +54,30 @@ struct ObjectError {
 }
 
 pub async fn serve(
-    root: &std::path::Path,
+    context: &super::shared::Context,
     repo: &str,
     path: &str,
     write_enabled: bool,
     request: axum::extract::Request,
 ) -> axum::response::Response {
-    let store = match gilti_git::lfs::LfsStore::open(root, repo) {
+    let store = match gilti_git::lfs::LfsStore::open(
+        context.repositories.as_path(),
+        repo,
+        context.lfs.max_object_bytes.as_u64(),
+    ) {
         Ok(store) => store,
         Err(_) => return plain(axum::http::StatusCode::NOT_FOUND, "repository not found\n"),
     };
     let method = request.method().clone();
     if path == "objects/batch" && method == axum::http::Method::POST {
-        return batch(store, write_enabled, request).await;
+        return batch(store, write_enabled, &context.lfs, request).await;
     }
     if method == axum::http::Method::POST
         && let Some(oid) = path
             .strip_prefix("objects/")
             .and_then(|value| value.strip_suffix("/verify"))
     {
-        return verify(store, oid, request).await;
+        return verify(store, oid, &context.lfs, request).await;
     }
     let Some(oid) = path.strip_prefix("objects/") else {
         return plain(axum::http::StatusCode::NOT_FOUND, "not found\n");
@@ -99,6 +103,7 @@ pub async fn serve(
 async fn batch(
     store: gilti_git::lfs::LfsStore,
     write_enabled: bool,
+    limits: &crate::config::ConfigLfs,
     request: axum::extract::Request,
 ) -> axum::response::Response {
     let base = request
@@ -118,7 +123,13 @@ async fn batch(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("localhost");
     let prefix = format!("{scheme}://{host}{base}/objects");
-    let body = match axum::body::to_bytes(request.into_body(), 1024 * 1024).await {
+    let body = match axum::body::to_bytes(
+        request.into_body(),
+        usize::try_from(limits.batch_request_max_bytes.as_u64())
+            .expect("LFS batch request limit fits usize"),
+    )
+    .await
+    {
         Ok(v) => v,
         Err(_) => {
             return plain(
@@ -250,12 +261,19 @@ async fn upload(
 async fn verify(
     store: gilti_git::lfs::LfsStore,
     oid: &str,
+    limits: &crate::config::ConfigLfs,
     request: axum::extract::Request,
 ) -> axum::response::Response {
     if !gilti_git::lfs::valid_oid(oid) {
         return plain(axum::http::StatusCode::BAD_REQUEST, "invalid object id\n");
     };
-    let body = match axum::body::to_bytes(request.into_body(), 64 * 1024).await {
+    let body = match axum::body::to_bytes(
+        request.into_body(),
+        usize::try_from(limits.verify_request_max_bytes.as_u64())
+            .expect("LFS verification request limit fits usize"),
+    )
+    .await
+    {
         Ok(v) => v,
         Err(_) => {
             return plain(

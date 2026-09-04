@@ -17,6 +17,7 @@ allow = [
   "OFL-1.1",
   "Zlib",
   "Unicode-3.0",
+  "bzip2-1.0.6",
 
   # GPL versions
   "AGPL-3.0-or-later",

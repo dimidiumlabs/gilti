@@ -12,10 +12,15 @@ pub use crate::urls::{encode_path, repository as repository_url};
 
 #[derive(Clone)]
 pub struct Context {
-    pub repositories: &'static str,
+    pub repositories: std::sync::Arc<std::path::PathBuf>,
     pub root_title: std::sync::Arc<str>,
     pub root_description: std::sync::Arc<str>,
     pub clone_prefix: std::sync::Arc<str>,
+    pub archive_formats: std::sync::Arc<[gilti_git::archive::Format]>,
+    pub archive_compression: gilti_git::commands::ArchiveCompression,
+    pub git: std::sync::Arc<gilti_git::commands::GitCommand>,
+    pub lfs: std::sync::Arc<crate::config::ConfigLfs>,
+    pub browser: std::sync::Arc<crate::config::ConfigBrowser>,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

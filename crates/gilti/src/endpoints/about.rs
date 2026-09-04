@@ -9,9 +9,9 @@ pub async fn serve(
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
     let model = tokio::task::spawn_blocking(move || {
-        gilti_git::about::About::load(std::path::Path::new(repositories), &route.repo)
+        gilti_git::about::About::load(repositories.as_path(), &route.repo)
     })
     .await;
     let model = match model {

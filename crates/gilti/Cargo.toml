@@ -15,13 +15,14 @@ repository.workspace = true
 rust-version.workspace = true
 
 [build-dependencies]
-dimidiumlabs-ui-build = { git = "https://git.dimidiumlabs.io/platform.git", rev = "53c91185b6dfd11cb803e88e1fe200bf6a44960b" }
+dimidiumlabs-ui-build = { git = "https://git.dimidiumlabs.io/platform.git", rev = "d6639bb2f831afedfa0b55faf5869311b04d9d74" }
 
 [dependencies]
-dimidiumlabs-ui = { git = "https://git.dimidiumlabs.io/platform.git", rev = "53c91185b6dfd11cb803e88e1fe200bf6a44960b" }
-dimidiumlabs-server = { git = "https://git.dimidiumlabs.io/platform.git", rev = "53c91185b6dfd11cb803e88e1fe200bf6a44960b" }
+dimidiumlabs-ui = { git = "https://git.dimidiumlabs.io/platform.git", rev = "d6639bb2f831afedfa0b55faf5869311b04d9d74" }
+dimidiumlabs-server = { git = "https://git.dimidiumlabs.io/platform.git", rev = "d6639bb2f831afedfa0b55faf5869311b04d9d74" }
 
 axum.workspace = true
+bytesize.workspace = true
 libc.workspace = true
 percent-encoding.workspace = true
 pulldown-cmark.workspace = true
@@ -33,4 +34,9 @@ serde_json.workspace = true
 gilti-git = { path = "../git" }
 tokio-util.workspace = true
 futures-util.workspace = true
+garde.workspace = true
 hyper-util.workspace = true
+humantime-serde.workspace = true
+ipnet.workspace = true
+serde_yaml_ng.workspace = true
+toml.workspace = true

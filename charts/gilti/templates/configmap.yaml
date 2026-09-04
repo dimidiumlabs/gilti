@@ -11,6 +11,22 @@
 {{- fail "ssh.authorizedKeys entries must be non-empty single lines" }}
 {{- end }}
 {{- end }}
+{{- $config := deepCopy .Values.config }}
+{{- $server := get $config "server" | default dict }}
+{{- $_ := set $server "hostnames" .Values.http.hostnames }}
+{{- $_ = set $config "server" $server }}
+{{- $instance := get $config "instance" | default dict }}
+{{- $_ = set $instance "root_title" .Values.web.rootTitle }}
+{{- $_ = set $instance "root_description" .Values.web.rootDescription }}
+{{- $_ = set $instance "clone_prefix" .Values.web.clonePrefix }}
+{{- $_ = set $config "instance" $instance }}
+{{- $access := get $config "access" | default dict }}
+{{- $_ = set $access "ssh" .Values.ssh.enabled }}
+{{- $_ = set $access "http_write" .Values.http.write }}
+{{- $_ = set $config "access" $access }}
+{{- $archive := get $config "archive" | default dict }}
+{{- $_ = set $archive "formats" .Values.archive.formats }}
+{{- $_ = set $config "archive" $archive }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -18,6 +34,8 @@ metadata:
   labels:
     {{- include "gilti.labels" . | nindent 4 }}
 data:
+  config.json: |
+    {{ $config | toPrettyJson | nindent 4 }}
   authorized_keys: |
     {{- range .Values.ssh.authorizedKeys }}
     {{ . }}

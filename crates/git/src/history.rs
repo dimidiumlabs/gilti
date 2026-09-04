@@ -3,8 +3,6 @@
 
 use std::{collections::BTreeMap, path::Path, process::Command};
 
-pub const LOG_PAGE_SIZE: usize = 50;
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Search {
     None,
@@ -51,6 +49,7 @@ pub struct Entry {
 
 impl History {
     pub fn load(
+        git: &crate::commands::GitCommand,
         root: &Path,
         name: &str,
         revision: crate::Revision,
@@ -78,6 +77,7 @@ impl History {
         let repository_path = super::repository::path(root, name)?;
         let follow = options.follow && options.path.is_some();
         let oids = select(
+            git,
             &repository_path,
             resolved.id().to_string(),
             &options,
@@ -91,6 +91,7 @@ impl History {
             None
         } else {
             Some(statistics_from_git(
+                git,
                 &repository_path,
                 selected,
                 options.path.as_deref(),
@@ -161,16 +162,9 @@ struct Selected {
     graph_continuations: Vec<String>,
 }
 
-fn git(path: &Path) -> Command {
-    let mut command = Command::new(crate::GIT);
+fn git(git: &crate::commands::GitCommand, path: &Path) -> Command {
+    let mut command = git.std();
     command
-        .env_clear()
-        .env("HOME", "/var/empty")
-        .env("PATH", "/usr/bin:/bin")
-        .env("LC_ALL", "C")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
-        .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_ATTR_NOSYSTEM", "1")
         .arg("--no-replace-objects")
         .arg("--git-dir")
         .arg(path)
@@ -183,12 +177,13 @@ fn git(path: &Path) -> Command {
 }
 
 fn select(
+    git_command: &crate::commands::GitCommand,
     path: &Path,
     revision: String,
     options: &Options,
     follow: bool,
 ) -> Result<Vec<Selected>, super::Error> {
-    let mut command = git(path);
+    let mut command = git(git_command, path);
     command
         .arg("log")
         .arg("--no-ext-diff")
@@ -333,6 +328,7 @@ fn decorations(
 }
 
 fn statistics_from_git(
+    git_command: &crate::commands::GitCommand,
     repository: &Path,
     selected: &[Selected],
     path: Option<&str>,
@@ -341,7 +337,7 @@ fn statistics_from_git(
     if selected.is_empty() {
         return Ok(BTreeMap::new());
     }
-    let mut command = git(repository);
+    let mut command = git(git_command, repository);
     command
         .arg("log")
         .arg("--no-walk=unsorted")

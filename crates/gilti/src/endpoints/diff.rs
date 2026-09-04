@@ -13,15 +13,22 @@ pub struct Query {
 }
 
 impl Query {
-    pub fn from_request(query: &crate::RequestQuery) -> Result<Self, ()> {
+    pub fn from_request(
+        query: &crate::daemon::RequestQuery,
+        browser: &crate::config::ConfigBrowser,
+    ) -> Result<Self, ()> {
         let context = query
             .value("GILTI_QUERY_CONTEXT")
             .map(str::parse)
             .transpose()
             .map_err(|_| ())?
-            .unwrap_or(3);
-        let context = if context == 0 { 3 } else { context };
-        if context > 40 {
+            .unwrap_or(browser.diff_default_context);
+        let context = if context == 0 {
+            browser.diff_default_context
+        } else {
+            context
+        };
+        if context > browser.diff_max_context {
             return Err(());
         }
         let ignore_whitespace = match query.value("GILTI_QUERY_IGNOREWS") {
@@ -60,14 +67,14 @@ pub async fn serve(
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
     let name = route.repo.clone();
     let old = route.params.old_rev.clone();
     let new = route.params.new_rev.clone();
     let path = route.params.path.clone();
     let model = tokio::task::spawn_blocking(move || {
         gilti_git::diff::Diff::load(
-            std::path::Path::new(repositories),
+            repositories.as_path(),
             &name,
             Some(old),
             new,
@@ -89,6 +96,7 @@ pub async fn serve(
         model: &model,
         mode: query.mode,
         path: route.params.path.as_deref(),
+        abbreviated_oid_chars: context.browser.abbreviated_oid_chars,
     }
     .render();
     super::shared::render_with_options(
@@ -97,7 +105,7 @@ pub async fn serve(
         &revision,
         super::shared::Page::Diff,
         super::shared::RenderOptions {
-            sidebar: Some(options_sidebar(query)),
+            sidebar: Some(options_sidebar(query, &context.browser)),
             ..Default::default()
         },
         content,
@@ -112,14 +120,13 @@ async fn raw_response(
     query: Query,
     method: &axum::http::Method,
 ) -> axum::response::Response {
-    let repository = match gilti_git::repository::path(
-        std::path::Path::new(context.repositories),
-        &route.repo,
-    ) {
+    let repository = match gilti_git::repository::path(context.repositories.as_path(), &route.repo)
+    {
         Ok(repository) => repository,
         Err(error) => return super::error(error),
     };
     let output = match gilti_git::commands::raw_diff(
+        &context.git,
         &repository,
         model.old_oid.as_deref(),
         &model.new_oid,
@@ -153,11 +160,14 @@ mod tests {
 
     #[test]
     fn options_sidebar_supplies_a_semantic_form_without_a_layout_wrapper() {
-        let rendered = super::options_sidebar(super::Query {
-            context: 3,
-            ignore_whitespace: false,
-            mode: super::Mode::Unified,
-        })
+        let rendered = super::options_sidebar(
+            super::Query {
+                context: 3,
+                ignore_whitespace: false,
+                mode: super::Mode::Unified,
+            },
+            &crate::config::ConfigBrowser::default(),
+        )
         .into_string();
 
         assert!(rendered.starts_with("<form "));
@@ -174,13 +184,13 @@ mod tests {
 
 use maud::{Markup, Render, html};
 
-pub fn options_sidebar(query: Query) -> Markup {
+pub fn options_sidebar(query: Query, browser: &crate::config::ConfigBrowser) -> Markup {
     html! {
         form method="get" aria-label="diff options" {
             strong { "diff options" }
             label for="diff-context" { "context:" }
             select id="diff-context" name="context" {
-                @for value in [1_u32,2,3,4,5,6,7,8,9,10,15,20,25,30,35,40] {
+                @for value in 1..=browser.diff_max_context {
                     option value=(value) selected[query.context == value] { (value) }
                 }
             }

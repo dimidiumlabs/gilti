@@ -6,17 +6,17 @@
 }
 
 .commit-graph {
-    font-family: monospace;
+    font-family: var(--font-family-mono);
     white-space: pre;
 }
 
 .log-subject {
-    font-family: monospace;
+    font-family: var(--font-family-mono);
     font-weight: bold;
 }
 
 .log-message {
-    font-family: monospace;
+    font-family: var(--font-family-mono);
     white-space: pre;
     padding: 0 .5em;
 }

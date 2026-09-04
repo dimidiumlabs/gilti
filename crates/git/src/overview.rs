@@ -30,7 +30,12 @@ pub struct Decoration {
 }
 
 impl Overview {
-    pub fn load(root: &Path, name: &str) -> Result<Self, super::Error> {
+    pub fn load(
+        root: &Path,
+        name: &str,
+        max_refs: usize,
+        max_commits: usize,
+    ) -> Result<Self, super::Error> {
         let repository = super::repository::open(root, name)?;
         let info = super::repository::info(&repository, name);
         let head = match repository.head().and_then(|head| head.peel_to_commit()) {
@@ -81,7 +86,7 @@ impl Overview {
         walk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)
             .map_err(super::Error::from_git)?;
         let mut commits = Vec::new();
-        for oid in walk.take(10) {
+        for oid in walk.take(max_commits) {
             let oid = oid.map_err(super::Error::from_git)?;
             let commit = repository
                 .find_commit(oid)
@@ -107,8 +112,8 @@ impl Overview {
         Ok(Self {
             repository: info,
             empty: false,
-            branches: refs.branches.into_iter().take(10).collect(),
-            tags: refs.tags.into_iter().take(10).collect(),
+            branches: refs.branches.into_iter().take(max_refs).collect(),
+            tags: refs.tags.into_iter().take(max_refs).collect(),
             commits,
         })
     }

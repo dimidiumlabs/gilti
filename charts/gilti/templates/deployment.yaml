@@ -45,24 +45,18 @@ spec:
         - name: gilti
           image: {{ include "gilti.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["serve", "--config", "/etc/gilti/config.json"]
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          env:
-            - name: GILTI_ROOT_TITLE
-              value: {{ .Values.web.rootTitle | quote }}
-            - name: GILTI_ROOT_DESCRIPTION
-              value: {{ .Values.web.rootDescription | quote }}
-            - name: GILTI_CLONE_PREFIX
-              value: {{ .Values.web.clonePrefix | quote }}
-            - name: GILTI_HTTP_WRITE
-              value: {{ ternary "1" "0" .Values.http.write | quote }}
           ports:
             - name: http
               containerPort: 8080
               protocol: TCP
+            {{- if .Values.ssh.enabled }}
             - name: ssh
               containerPort: 2222
               protocol: TCP
+            {{- end }}
           startupProbe:
             httpGet:
               path: /-/health
@@ -87,6 +81,10 @@ spec:
             - name: config
               mountPath: /etc/gilti/authorized_keys
               subPath: authorized_keys
+              readOnly: true
+            - name: config
+              mountPath: /etc/gilti/config.json
+              subPath: config.json
               readOnly: true
             - name: run
               mountPath: /run/gilti

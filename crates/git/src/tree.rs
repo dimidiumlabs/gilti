@@ -45,6 +45,7 @@ impl Tree {
         name: &str,
         revision: crate::Revision,
         path: Option<String>,
+        binary_detection_bytes: usize,
     ) -> Result<Self, super::Error> {
         let repository = super::repository::open(root, name)?;
         let info = super::repository::info(&repository, name);
@@ -69,7 +70,10 @@ impl Tree {
                             .find_blob(entry.id())
                             .map_err(super::Error::from_git)?;
                         let bytes = blob.content().to_vec();
-                        let binary = bytes.iter().take(8000).any(|byte| *byte == 0);
+                        let binary = bytes
+                            .iter()
+                            .take(binary_detection_bytes)
+                            .any(|byte| *byte == 0);
                         Content::Blob {
                             oid: entry.id().to_string(),
                             bytes,
@@ -190,7 +194,8 @@ mod tests {
         drop(odb);
         drop(repository);
 
-        let root_tree = super::Tree::load(&root, "example", crate::Revision::Head, None).unwrap();
+        let root_tree =
+            super::Tree::load(&root, "example", crate::Revision::Head, None, 8000).unwrap();
         let super::Content::Directory { entries, .. } = root_tree.content else {
             panic!("expected directory")
         };
@@ -233,6 +238,7 @@ mod tests {
             "example",
             crate::Revision::Head,
             Some("dir/file.txt".to_owned()),
+            8000,
         )
         .unwrap();
         let super::Content::Blob { bytes, binary, .. } = blob.content else {
@@ -245,7 +251,8 @@ mod tests {
                 &root,
                 "example",
                 crate::Revision::Head,
-                Some("missing".to_owned())
+                Some("missing".to_owned()),
+                8000,
             ),
             Err(crate::Error::NotFound)
         ));
@@ -254,7 +261,8 @@ mod tests {
                 &root,
                 "example",
                 crate::Revision::Commit(readme.to_string()),
-                None
+                None,
+                8000,
             ),
             Err(crate::Error::NotFound)
         ));

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Nikolay Govorov
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+{{- if .Values.ssh.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -23,3 +24,4 @@ spec:
       port: {{ .Values.sshService.port }}
       targetPort: ssh
       protocol: TCP
+{{- end }}

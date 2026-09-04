@@ -9,28 +9,56 @@ umask 077
 state=/var/lib/gilti
 run_dir=/run/gilti
 ssh_run_dir=$run_dir/ssh
-
-git_home=$state/git
-repositories=$git_home/repositories
+config_path_file=$run_dir/config-path
 host_key_dir=$state/ssh
-authorized_keys_source=${GILTI_AUTHORIZED_KEYS_FILE:-/etc/gilti/authorized_keys}
+authorized_keys_source=/etc/gilti/authorized_keys
 authorized_keys=$ssh_run_dir/authorized_keys
 
 log() {
     printf 'gilti: %s\n' "$*" >&2
 }
 
+resolve_config() {
+    [ "$#" -eq 2 ] && [ "$1" = --config ] || {
+        log 'serve requires --config <PATH>'
+        exit 1
+    }
+    config_source=$(readlink -f -- "$2") || {
+        log "cannot resolve configuration path $2"
+        exit 1
+    }
+    [ -f "$config_source" ] && [ -r "$config_source" ] || {
+        log "configuration is not a readable file: $config_source"
+        exit 1
+    }
+}
+
 prepare_runtime() {
     [ "$(id -u)" -eq 0 ] || { log "the supervisor must start as root"; exit 1; }
-    for path in "$git_home" "$repositories"; do
-        [ ! -L "$path" ] || { log "refusing symlinked state path $path"; exit 1; }
-    done
-    install -d -m 0755 -o root -g root "$state"
-    install -d -m 0750 -o git -g git "$git_home" "$repositories"
-    install -d -m 0700 -o root -g root "$host_key_dir"
-    install -d -m 0755 -o root -g root "$run_dir" /run/sshd
-    install -d -m 0750 -o root -g git "$ssh_run_dir"
-    rm -f "$ssh_run_dir/sshd.pid" "$authorized_keys" "$authorized_keys".*
+    [ ! -L "$state" ] || { log "refusing symlinked state path $state"; exit 1; }
+    # The sticky root-owned state directory lets git create configured storage
+    # while preventing it from replacing the root-owned SSH host-key directory.
+    install -d -m 1770 -o root -g git "$state"
+    install -d -m 0755 -o root -g root "$run_dir"
+
+    extension=${config_source##*.}
+    extension=$(printf '%s' "$extension" | tr '[:upper:]' '[:lower:]')
+    case $extension in
+        json|toml|yaml|yml) ;;
+        *) log "configuration must have a .json, .toml, .yaml, or .yml extension"; exit 1 ;;
+    esac
+    config=$run_dir/config.$extension
+    config_tmp=$config.tmp.$$
+    cp -- "$config_source" "$config_tmp"
+    chown root:git "$config_tmp"
+    chmod 0640 "$config_tmp"
+    mv -f "$config_tmp" "$config"
+
+    config_path_tmp=$config_path_file.tmp.$$
+    printf '%s\n' "$config" >"$config_path_tmp"
+    chown root:git "$config_path_tmp"
+    chmod 0640 "$config_path_tmp"
+    mv -f "$config_path_tmp" "$config_path_file"
 }
 
 prepare_authorized_keys() {
@@ -102,11 +130,26 @@ prepare_host_key() {
 
 prepare() {
     prepare_runtime
-    prepare_authorized_keys
-    prepare_host_key
-    /usr/local/bin/gilti --check
-    /usr/local/bin/gilti-ssh --check
-    /usr/sbin/sshd -t -f /etc/ssh/sshd_config
+    gosu git:git /usr/local/bin/gilti --config "$config" --check
+
+    if gosu git:git /usr/local/bin/gilti --config "$config" shell --is-enabled; then
+        ssh_enabled=1
+    else
+        status=$?
+        [ "$status" -eq 3 ] || exit "$status"
+        ssh_enabled=0
+    fi
+
+    if [ "$ssh_enabled" -eq 1 ]; then
+        install -d -m 0700 -o root -g root "$host_key_dir"
+        install -d -m 0755 -o root -g root /run/sshd
+        install -d -m 0750 -o root -g git "$ssh_run_dir"
+        rm -f "$ssh_run_dir/sshd.pid" "$authorized_keys" "$authorized_keys".*
+        prepare_authorized_keys
+        prepare_host_key
+        gosu git:git /usr/local/bin/gilti --config "$config" shell --check
+        /usr/sbin/sshd -t -f /etc/ssh/sshd_config
+    fi
 }
 
 stop_services() {
@@ -134,15 +177,16 @@ supervise() {
     prepare
     trap stop_services TERM INT HUP
 
-    /usr/sbin/sshd -D -e -f /etc/ssh/sshd_config &
-    sshd_pid=$!
+    if [ "$ssh_enabled" -eq 1 ]; then
+        /usr/sbin/sshd -D -e -f /etc/ssh/sshd_config &
+        sshd_pid=$!
+    fi
 
-    gosu git:git env HOME="$git_home" USER=git LOGNAME=git \
-        /usr/local/bin/gilti &
+    gosu git:git /usr/local/bin/gilti --config "$config" &
     httpd_pid=$!
 
     while :; do
-        for pid in "$sshd_pid" "$httpd_pid"; do
+        for pid in ${sshd_pid:-} "$httpd_pid"; do
             if ! kill -0 "$pid" 2>/dev/null; then
                 if wait "$pid"; then status=1; else status=$?; fi
                 log "a service exited; stopping the pod"
@@ -154,9 +198,27 @@ supervise() {
     done
 }
 
-case ${1:-serve} in
+forced_shell() {
+    [ "$(id -u)" -eq 10000 ] || { log "the forced shell must run as git"; exit 1; }
+    [ -r "$config_path_file" ] || { log "configuration path is unavailable"; exit 1; }
+    IFS= read -r config <"$config_path_file"
+    [ -n "$config" ] || { log "configuration path is empty"; exit 1; }
+    exec /usr/local/bin/gilti --config "$config" shell
+}
+
+case ${1:-} in
     serve)
+        shift
+        resolve_config "$@"
         supervise
+        ;;
+    shell)
+        [ "$#" -eq 1 ] || { log "invalid forced-shell invocation"; exit 1; }
+        forced_shell
+        ;;
+    '')
+        log 'serve requires --config <PATH>'
+        exit 1
         ;;
     *)
         exec "$@"

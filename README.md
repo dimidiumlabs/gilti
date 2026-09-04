@@ -10,7 +10,7 @@ platforms but aren't ready to host complex services like Forgejo.
 ## Security boundary
 
 - Git fetch is available anonymously over smart HTTP; authenticated fetch and
-  push use SSH public-key authentication through `gilti-ssh`.
+  push use SSH public-key authentication through `gilti shell`.
 - Every configured key has read/write access to every repository and may create
   a repository by pushing to its name for the first time.
 - Repository browsing, archives, LFS downloads, and smart HTTP fetches are
@@ -23,12 +23,20 @@ platforms but aren't ready to host complex services like Forgejo.
 
 ## Container
 
-Every start requires a static `authorized_keys` file:
+The image contains a default TOML configuration. SSH-enabled starts also require
+an `authorized_keys` file:
 
 ```console
 docker pull ghcr.io/dimidiumlabs/gilti:nightly
 ssh-keygen -q -t ed25519 -N '' -f ./admin
 cp ./admin.pub ./authorized_keys
+cat >gilti.toml <<'EOF'
+[instance]
+root_title = "My Git server"
+
+[access]
+ssh = true
+EOF
 
 docker run --rm \
   --read-only --cap-drop ALL \
@@ -38,17 +46,41 @@ docker run --rm \
   --tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m \
   -p 8080:8080 -p 2222:2222 \
   -v gilti-state:/var/lib/gilti \
+  -v "$PWD/gilti.toml:/etc/gilti/config.toml:ro" \
   -v "$PWD/authorized_keys:/etc/gilti/authorized_keys:ro" \
   ghcr.io/dimidiumlabs/gilti:nightly
 ```
 
-The HTTP configuration is read from the environment at startup:
+Gilti requires the configuration path explicitly:
 
-- `GILTI_ROOT_TITLE` (default: `Gilti`);
-- `GILTI_ROOT_DESCRIPTION` (default: `A tiny Git server`);
-- `GILTI_CLONE_PREFIX` (empty by default);
-- `GILTI_HTTP_WRITE` (`0` by default; `1` enables unauthenticated HTTP pushes
-  and LFS uploads).
+```console
+gilti --config /etc/gilti/config.toml
+gilti --config /etc/gilti/config.toml --check
+gilti --config /etc/gilti/config.toml shell
+```
+
+The filename extension selects JSON (`.json`), TOML (`.toml`), or YAML
+(`.yaml`/`.yml`). Each file is a Serde representation of the typed `Config`
+structure with `server`, `instance`, `git_storage`, `git`, `lfs`, `browser`,
+`access`, and `archive` sections.
+Unknown fields are rejected and omitted fields receive typed defaults. See the
+complete [`config/gilti.toml`](config/gilti.toml) example.
+
+Durations use values such as `250ms`, `10s`, or `2m`. Byte sizes accept explicit
+units such as `32KiB` and `10MiB`. Git storage paths must be absolute and
+normalized, and `git_storage.repositories` must be below `git_storage.home`.
+When `repositories` is omitted, it defaults to the `repositories` directory
+below the configured Git home. The container image and Helm chart mount their
+persistent state at `/var/lib/gilti`; custom container storage paths must be
+placed on a writable mount with suitable ownership.
+
+`server` owns transport limits and trusted-proxy networks, `git` owns executable
+paths and smart-HTTP policy, `lfs` owns object and request limits, and `browser`
+owns pagination and presentation limits. `archive.formats` selects the download
+formats; supported values are `tar`, `tar.gz`, `tar.bz2`, `tar.xz`, `tar.zst`,
+and `zip`. TAR compression is streamed by native Rust codecs rather than
+external compressor processes; its buffer and codec levels are configured in
+the same `archive` section.
 
 Gilti snapshots the authorized keys file at process startup; changing it takes
 effect after a restart. Repositories and the persistent SSH host key live on the

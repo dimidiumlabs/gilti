@@ -23,9 +23,7 @@ cargo build \
     --manifest-path "$workspace/Cargo.toml" \
     --locked \
     --release \
-    --package gilti \
-    --package gilti-ssh
+    --package gilti
 output="$workspace/.container/binary-$arch"
 rm -rf "$output"
 install -Dm0755 "$workspace/target/release/gilti" "$output/gilti"
-install -Dm0755 "$workspace/target/release/gilti-ssh" "$output/gilti-ssh"

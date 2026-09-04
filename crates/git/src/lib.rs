@@ -6,8 +6,6 @@
 //! This crate deliberately exposes owned domain data only; `git2` handles never
 //! cross its public API boundary.
 
-pub const GIT: &str = "/usr/bin/git";
-
 pub mod about;
 pub mod archive;
 pub mod archive_signature;

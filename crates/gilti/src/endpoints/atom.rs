@@ -10,14 +10,17 @@ pub async fn serve(
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
     let name = route.repo;
     let reference = route.params.reference;
     let path = route.params.path;
     let selection_path = path.clone();
+    let git = std::sync::Arc::clone(&context.git);
+    let feed_commits = context.browser.feed_commits;
     let model = tokio::task::spawn_blocking(move || {
         gilti_git::history::History::load(
-            std::path::Path::new(repositories),
+            &git,
+            repositories.as_path(),
             &name,
             crate::router::Revision::Ref(reference),
             gilti_git::history::Options {
@@ -25,7 +28,7 @@ pub async fn serve(
                 follow: false,
                 search: gilti_git::history::Search::None,
                 offset: 0,
-                limit: 10,
+                limit: feed_commits,
                 graph: false,
                 ignore_whitespace: false,
                 include_statistics: false,

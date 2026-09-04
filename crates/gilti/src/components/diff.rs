@@ -19,14 +19,20 @@ pub struct Diff<'a> {
     pub model: &'a gilti_git::diff::Diff,
     pub mode: Mode,
     pub path: Option<&'a str>,
+    pub abbreviated_oid_chars: usize,
 }
 impl Render for Diff<'_> {
     fn render(&self) -> Markup {
-        render_content(self.model, self.mode, self.path)
+        render_content(self.model, self.mode, self.path, self.abbreviated_oid_chars)
     }
 }
 
-fn render_content(model: &gilti_git::diff::Diff, mode: Mode, path: Option<&str>) -> Markup {
+fn render_content(
+    model: &gilti_git::diff::Diff,
+    mode: Mode,
+    path: Option<&str>,
+    abbreviated_oid_chars: usize,
+) -> Markup {
     html! {
         div class=(diff::DIFFSTAT_HEADER) {
             "Diffstat"
@@ -41,11 +47,11 @@ fn render_content(model: &gilti_git::diff::Diff, mode: Mode, path: Option<&str>)
         @if mode != Mode::StatOnly {
             @if mode == Mode::SideBySide {
                 table summary="ssdiff" class=(diff::SSDIFF) {
-                    @for file in &model.files { (side_file(model, file)) }
+                    @for file in &model.files { (side_file(model, file, abbreviated_oid_chars)) }
                 }
             } @else {
                 @for (index, file) in model.files.iter().enumerate() {
-                    (unified_file(model, file, index))
+                    (unified_file(model, file, index, abbreviated_oid_chars))
                 }
             }
         }
@@ -91,6 +97,7 @@ fn unified_file(
     model: &gilti_git::diff::Diff,
     file: &gilti_git::diff::File,
     file_index: usize,
+    abbreviated_oid_chars: usize,
 ) -> Markup {
     let mut lines = Vec::new();
     if file.binary {
@@ -132,7 +139,7 @@ fn unified_file(
         }
     }
     html! {
-        (file_header(model, file))
+        (file_header(model, file, abbreviated_oid_chars))
         (CodeBlock {
             summary: "diff content",
             numbers: LineNumbers::Diff,
@@ -142,9 +149,13 @@ fn unified_file(
     }
 }
 
-fn side_file(model: &gilti_git::diff::Diff, file: &gilti_git::diff::File) -> Markup {
+fn side_file(
+    model: &gilti_git::diff::Diff,
+    file: &gilti_git::diff::File,
+    abbreviated_oid_chars: usize,
+) -> Markup {
     html! {
-        tr { td colspan="4" { (file_header(model, file)) } }
+        tr { td colspan="4" { (file_header(model, file, abbreviated_oid_chars)) } }
         @if file.binary { tr { td colspan="4" { "Binary files differ" } } }
         @for hunk in &file.hunks {
             tr { td colspan="4" class=(diff::HUNK) { (&hunk.header) } }
@@ -268,7 +279,11 @@ pub fn highlighted_segments(value: &str, common: &[char]) -> Vec<(bool, String)>
     segments
 }
 
-fn file_header(model: &gilti_git::diff::Diff, file: &gilti_git::diff::File) -> Markup {
+fn file_header(
+    model: &gilti_git::diff::Diff,
+    file: &gilti_git::diff::File,
+    abbreviated_oid_chars: usize,
+) -> Markup {
     let old = if file.old_path.is_empty() {
         "/dev/null"
     } else {
@@ -284,7 +299,7 @@ fn file_header(model: &gilti_git::diff::Diff, file: &gilti_git::diff::File) -> M
         @if file.old_mode == 0 { br; "new file mode " (format!("{:06o}", file.new_mode)) }
         @if file.new_mode == 0 { br; "deleted file mode " (format!("{:06o}", file.old_mode)) }
         @if let (Some(old_oid), Some(new_oid)) = (&file.old_oid, &file.new_oid) {
-            br; "index " (&old_oid[..old_oid.len().min(7)]) ".." (&new_oid[..new_oid.len().min(7)])
+            br; "index " (&old_oid[..old_oid.len().min(abbreviated_oid_chars)]) ".." (&new_oid[..new_oid.len().min(abbreviated_oid_chars)])
             @if file.old_mode != 0 && file.new_mode != 0 {
                 " " (format!("{:06o}", file.old_mode))
                 @if file.old_mode != file.new_mode { ".." (format!("{:06o}", file.new_mode)) }

@@ -16,7 +16,7 @@ PermitEmptyPasswords no
 PermitRootLogin no
 StrictModes yes
 AuthorizedKeysFile /run/gilti/ssh/authorized_keys
-ForceCommand /usr/local/bin/gilti-ssh
+ForceCommand /usr/local/bin/gilti-entrypoint shell
 AcceptEnv GIT_PROTOCOL
 
 DisableForwarding yes

@@ -42,6 +42,11 @@ if "$engine" run --rm --entrypoint /bin/sh "$image" -c 'test -e /usr/local/bin/g
     echo 'removed legacy browser binary is installed' >&2
     exit 1
 fi
+if "$engine" run --rm --entrypoint /bin/sh "$image" -c \
+    'command -v bzip2 lzip xz zstd' >/dev/null 2>&1; then
+    echo 'an external archive compressor is installed' >&2
+    exit 1
+fi
 
 printf '%s\n' 'not an SSH key' >"$work/bad-authorized-keys"
 if "$engine" run --rm \
@@ -98,7 +103,7 @@ for expected in \
     'permittty no' \
     'permituserrc no' \
     'permituserenvironment no' \
-    'forcecommand /usr/local/bin/gilti-ssh' \
+    'forcecommand /usr/local/bin/gilti-entrypoint shell' \
     'authorizedkeysfile /run/gilti/ssh/authorized_keys'; do
     printf '%s\n' "$sshd_config" | grep -Fqx "$expected" || {
         echo "effective sshd configuration is missing: $expected" >&2
@@ -294,14 +299,29 @@ keys_mode=$("$engine" exec "$name" stat -c '%u:%g:%a' /run/gilti/ssh/authorized_
     echo "unexpected authorized_keys ownership/mode: $keys_mode" >&2
     exit 1
 }
+config_mode=$("$engine" exec "$name" stat -c '%u:%g:%a' /run/gilti/config.toml)
+[ "$config_mode" = 0:10000:640 ] || {
+    echo "unexpected configuration snapshot ownership/mode: $config_mode" >&2
+    exit 1
+}
 if "$engine" exec --user 10000:10000 "$name" sh -c \
     'printf x >>/run/gilti/ssh/authorized_keys' 2>/dev/null; then
     echo 'Git service user can modify authorized_keys' >&2
     exit 1
 fi
+if "$engine" exec --user 10000:10000 "$name" sh -c \
+    'printf x >>/run/gilti/config.toml' 2>/dev/null; then
+    echo 'Git service user can modify the configuration snapshot' >&2
+    exit 1
+fi
 if "$engine" exec --user 10000:10000 "$name" rm /run/gilti/ssh/authorized_keys \
     2>/dev/null; then
     echo 'Git service user can remove authorized_keys' >&2
+    exit 1
+fi
+if "$engine" exec --user 10000:10000 "$name" \
+    mv /var/lib/gilti/ssh /var/lib/gilti/ssh-stolen 2>/dev/null; then
+    echo 'Git service user can replace the SSH host-key directory' >&2
     exit 1
 fi
 if "$engine" exec --user 10000:10000 "$name" test -r /var/lib/gilti/ssh/ssh_host_ed25519_key; then
@@ -323,7 +343,7 @@ if ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/n
 fi
 # shellcheck disable=SC2086
 if ssh $ssh_opts git@127.0.0.1 "git-upload-pack '../../etc/passwd'" >/dev/null 2>&1; then
-    echo 'gilti-ssh accepted an unsafe repository path' >&2
+    echo 'gilti shell accepted an unsafe repository path' >&2
     exit 1
 fi
 
@@ -349,7 +369,7 @@ mkdir "$work/testing"
     GIT_SSH_COMMAND="ssh $ssh_opts" git push -u origin main >/dev/null
 )
 if "$engine" exec "$name" test -e /tmp/global-hook-ran; then
-    echo 'gilti-ssh honored the writable global Git configuration' >&2
+    echo 'gilti shell honored the writable global Git configuration' >&2
     exit 1
 fi
 repository_modes=$("$engine" exec "$name" stat -c '%a:%u:%g' \
@@ -417,14 +437,27 @@ curl -fsS "http://127.0.0.1:$http_port/testing/+/diff/$old_commit..$new_commit?f
     grep -q '^+Second key can push\.'
 curl -fsS "http://127.0.0.1:$http_port/testing/+/patch/$old_commit..$new_commit/+/README%2emd" |
     grep -q '^Subject: Push with second key'
-for format in tar tar.gz tar.bz2 tar.lz tar.xz tar.zst zip; do
+for format in tar tar.gz tar.bz2 tar.xz tar.zst zip; do
     curl -fsS "http://127.0.0.1:$http_port/testing/+/HEAD/+/archive?format=$format" \
         -o "$work/testing.$format"
     [ -s "$work/testing.$format" ] || {
         echo "empty $format archive" >&2
         exit 1
     }
+    magic=$(od -An -tx1 -N6 "$work/testing.$format" | tr -d ' \n')
+    case $format:$magic in
+        tar:*) ;;
+        tar.gz:1f8b*) ;;
+        tar.bz2:425a68*) ;;
+        tar.xz:fd377a585a00) ;;
+        tar.zst:28b52ffd*) ;;
+        zip:504b0304*) ;;
+        *) echo "invalid $format archive signature: $magic" >&2; exit 1 ;;
+    esac
 done
+curl -fsS "http://127.0.0.1:$http_port/testing/+/HEAD/+/archive?format=tar.gz" \
+    -o "$work/testing-second.tar.gz"
+cmp "$work/testing.tar.gz" "$work/testing-second.tar.gz"
 archive_headers=$work/archive.headers
 curl -fsS -o /dev/null -D "$archive_headers" -H 'Accept-Encoding: br' \
     "http://127.0.0.1:$http_port/testing/+/HEAD/+/archive?format=tar"
@@ -474,5 +507,62 @@ ssh $ssh_opts git@127.0.0.1 | grep -q 'Gilti: authenticated'
 # shellcheck disable=SC2086
 if ssh $ssh_opts_2 git@127.0.0.1 >/dev/null 2>&1; then
     echo 'removed SSH key was accepted after restart' >&2
+    exit 1
+fi
+
+remove_container
+cat >"$work/config.yaml" <<'EOF'
+instance:
+  root_title: File configuration
+  root_description: Loaded from YAML
+access:
+  ssh: false
+  http_write: false
+archive:
+  formats: [zip]
+EOF
+"$engine" run -d --name "$name" \
+    --read-only \
+    --cap-drop ALL \
+    --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER \
+    --cap-add SETGID --cap-add SETUID --cap-add SYS_CHROOT \
+    --tmpfs /run:rw,nosuid,nodev,noexec,size=32m \
+    --tmpfs /tmp:rw,nosuid,nodev,noexec,size=256m \
+    --mount "type=volume,src=$volume,dst=/var/lib/gilti" \
+    --mount "type=bind,src=$work/config.yaml,dst=/etc/gilti/custom.yaml,readonly" \
+    -p "127.0.0.1:$http_port:8080" \
+    "$image" serve --config /etc/gilti/custom.yaml >/dev/null
+i=0
+until curl -fsS "http://127.0.0.1:$http_port/-/health" >/dev/null 2>&1; do
+    i=$((i + 1))
+    if [ "$i" -ge 60 ]; then
+        "$engine" logs "$name" >&2
+        exit 1
+    fi
+    sleep 1
+done
+# shellcheck disable=SC2016 # Expanded by the shell inside the container.
+if "$engine" exec "$name" sh -c '
+    for comm in /proc/[0-9]*/comm; do
+        [ "$(cat "$comm")" = sshd ] && exit 0
+    done
+    exit 1
+'; then
+    echo 'sshd started while access.ssh=false' >&2
+    exit 1
+fi
+status=$(curl -sS -o /dev/null -w '%{http_code}' \
+    "http://127.0.0.1:$http_port/testing/+/HEAD/+/archive?format=tar")
+[ "$status" = 404 ] || {
+    echo "disabled tar archive returned HTTP $status instead of 404" >&2
+    exit 1
+}
+curl -fsS "http://127.0.0.1:$http_port/testing/+/HEAD/+/archive?format=zip" \
+    -o "$work/enabled.zip"
+[ -s "$work/enabled.zip" ]
+archive_page=$(curl -fsS "http://127.0.0.1:$http_port/testing/+/HEAD")
+printf '%s' "$archive_page" | grep -q 'archive?format=zip'
+if printf '%s' "$archive_page" | grep -q 'archive?format=tar'; then
+    echo 'disabled tar archive is still linked from the UI' >&2
     exit 1
 fi

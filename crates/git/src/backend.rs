@@ -14,14 +14,14 @@ use std::{
 };
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt, ReadBuf};
 
-pub const MAX_REQUEST_SIZE: u64 = 1024 * 1024 * 1024;
-
 #[derive(Clone)]
 pub struct HttpBackend {
     program: PathBuf,
     current_dir: PathBuf,
     environment: Vec<(OsString, OsString)>,
     server_addr: SocketAddr,
+    max_request_bytes: u64,
+    max_response_header_bytes: usize,
 }
 
 pub struct BackendRequest {
@@ -127,12 +127,16 @@ impl HttpBackend {
         program: impl Into<PathBuf>,
         current_dir: impl Into<PathBuf>,
         server_addr: SocketAddr,
+        max_request_bytes: u64,
+        max_response_header_bytes: usize,
     ) -> Self {
         Self {
             program: program.into(),
             current_dir: current_dir.into(),
             environment: vec![],
             server_addr,
+            max_request_bytes,
+            max_response_header_bytes,
         }
     }
 
@@ -222,7 +226,7 @@ impl HttpBackend {
                 break;
             }
             total += read as u64;
-            if total > MAX_REQUEST_SIZE {
+            if total > self.max_request_bytes {
                 reap(&mut child).await;
                 return Err(BackendError::InputTooLarge);
             }
@@ -240,14 +244,15 @@ impl HttpBackend {
             .stdout
             .take()
             .ok_or_else(|| BackendError::Io("stdout unavailable".into()))?;
-        let (status, headers, prefix) = match parse_headers(&mut stdout).await {
-            Ok(value) => value,
-            Err(error) => {
-                drop(stdout);
-                reap(&mut child).await;
-                return Err(error);
-            }
-        };
+        let (status, headers, prefix) =
+            match parse_headers(&mut stdout, self.max_response_header_bytes).await {
+                Ok(value) => value,
+                Err(error) => {
+                    drop(stdout);
+                    reap(&mut child).await;
+                    return Err(error);
+                }
+            };
         Ok(BackendResponse {
             status,
             headers,
@@ -268,6 +273,7 @@ async fn reap(child: &mut tokio::process::Child) {
 
 pub async fn parse_headers(
     reader: &mut (impl AsyncRead + Unpin),
+    max_bytes: usize,
 ) -> Result<(u16, Vec<(String, String)>, Vec<u8>), BackendError> {
     let mut bytes = Vec::new();
     let mut part = [0; 1024];
@@ -286,7 +292,7 @@ pub async fn parse_headers(
         if let Some(i) = bytes.windows(2).position(|x| x == b"\n\n") {
             return parse_head(&bytes[..i], bytes[i + 2..].to_vec());
         }
-        if bytes.len() > 64 * 1024 {
+        if bytes.len() > max_bytes {
             return Err(BackendError::InvalidResponse);
         }
     }
@@ -356,6 +362,8 @@ mod tests {
             "/bin/sh",
             "/",
             std::net::SocketAddr::from(([127, 0, 0, 1], 80)),
+            1024 * 1024,
+            64 * 1024,
         );
         let script = "printf 'Content-Type: text/plain\\r\\n\\r\\nhello'";
         let mut response = backend.execute(shell_request(script)).await.unwrap();
@@ -371,6 +379,8 @@ mod tests {
             "/bin/sh",
             "/",
             std::net::SocketAddr::from(([127, 0, 0, 1], 80)),
+            1024 * 1024,
+            64 * 1024,
         );
         let script = "printf 'Content-Type: text/plain\\r\\n\\r\\nhello'\nexit 3";
         let mut response = backend.execute(shell_request(script)).await.unwrap();
@@ -379,9 +389,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn enforces_configured_request_limit() {
+        let backend = super::HttpBackend::new(
+            "/bin/sh",
+            "/",
+            std::net::SocketAddr::from(([127, 0, 0, 1], 80)),
+            1,
+            64 * 1024,
+        );
+        assert!(matches!(
+            backend.execute(shell_request("xx")).await,
+            Err(super::BackendError::InputTooLarge)
+        ));
+    }
+
+    #[tokio::test]
     async fn parses_incremental_headers() {
         let mut input = &b"Status: 201 Created\r\nX-A: b\r\n\r\nbody"[..];
-        let (s, h, b) = super::parse_headers(&mut input).await.unwrap();
+        let (s, h, b) = super::parse_headers(&mut input, 64 * 1024).await.unwrap();
         assert_eq!(s, 201);
         assert_eq!(h[0], ("X-A".into(), "b".into()));
         assert_eq!(b, b"body");

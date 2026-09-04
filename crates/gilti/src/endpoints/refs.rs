@@ -9,9 +9,9 @@ pub async fn serve(
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
     let model = tokio::task::spawn_blocking(move || {
-        gilti_git::refs::Refs::load(std::path::Path::new(repositories), &route.repo)
+        gilti_git::refs::Refs::load(repositories.as_path(), &route.repo)
     })
     .await;
     let model = match model {
@@ -21,7 +21,11 @@ pub async fn serve(
             return super::error(gilti_git::Error::Internal(error.to_string()));
         }
     };
-    let content = RefsPage { model: &model }.render();
+    let content = RefsPage {
+        model: &model,
+        archive_formats: &context.archive_formats,
+    }
+    .render();
     super::shared::render(
         context,
         &model.repository,
@@ -47,6 +51,7 @@ use crate::endpoints::shared;
 
 struct RefsPage<'a> {
     pub model: &'a gilti_git::refs::Refs,
+    pub archive_formats: &'a [gilti_git::archive::Format],
 }
 
 impl Render for RefsPage<'_> {
@@ -65,6 +70,7 @@ impl Render for RefsPage<'_> {
                     (TagsTable {
                         repository_url: &repository_url,
                         tags: &self.model.tags,
+                        archive_formats: self.archive_formats,
                         nowrap: true,
                     })
                 }

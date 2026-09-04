@@ -9,12 +9,12 @@ pub async fn serve(
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
     let name = route.repo.clone();
     let old = route.params.old_rev.clone();
     let new = route.params.new_rev.clone();
     let model = tokio::task::spawn_blocking(move || {
-        gilti_git::patch::Patch::load(std::path::Path::new(repositories), &name, &old, &new)
+        gilti_git::patch::Patch::load(repositories.as_path(), &name, &old, &new)
     })
     .await;
     let model = match model {
@@ -23,6 +23,7 @@ pub async fn serve(
         Err(error) => return super::error(gilti_git::Error::Internal(error.to_string())),
     };
     let output = match gilti_git::commands::format_patch(
+        &context.git,
         &model.repository_path,
         &model.old_oid,
         &model.new_oid,

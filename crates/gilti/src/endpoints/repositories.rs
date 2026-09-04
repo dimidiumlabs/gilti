@@ -11,7 +11,7 @@ pub struct Query {
 }
 
 impl Query {
-    pub fn from_request(query: &crate::RequestQuery) -> Self {
+    pub fn from_request(query: &crate::daemon::RequestQuery) -> Self {
         let (sort, sort_name) = match query.value("GILTI_QUERY_SORT") {
             Some("desc") => (gilti_git::repositories::Sort::Description, "desc"),
             Some("owner") => (gilti_git::repositories::Sort::Owner, "owner"),
@@ -38,15 +38,15 @@ pub async fn serve(
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
     let filter = gilti_git::repositories::Filter {
         search: query.search.clone(),
         sort: query.sort,
         offset: query.offset,
-        limit: 50,
+        limit: context.browser.repositories_per_page,
     };
     let model = tokio::task::spawn_blocking(move || {
-        gilti_git::repositories::Repositories::load(std::path::Path::new(repositories), filter)
+        gilti_git::repositories::Repositories::load(repositories.as_path(), filter)
     })
     .await;
     let model = match model {
@@ -62,6 +62,8 @@ pub async fn serve(
         search: query.search.as_deref(),
         sort_name: query.sort_name,
         repositories: &model,
+        page_size: context.browser.repositories_per_page,
+        description_chars: context.browser.description_chars,
     };
     let document = document::render(&context.root_title, page.render()).into_string();
     let length = document.len();
@@ -96,6 +98,8 @@ struct RepositoriesPage<'a> {
     pub search: Option<&'a str>,
     pub sort_name: &'a str,
     pub repositories: &'a Repositories,
+    pub page_size: usize,
+    pub description_chars: usize,
 }
 
 impl Render for RepositoriesPage<'_> {
@@ -142,7 +146,7 @@ impl RepositoriesPage<'_> {
                         @let url = repository_url(&repository.name);
                         tr {
                             td { a href=(&url) { (&repository.name) } }
-                            td { a href=(&url) { (description(&repository.description)) } }
+                            td { a href=(&url) { (description(&repository.description, self.description_chars)) } }
                             td { a href="/?q=" {} }
                             td { @if let Some(timestamp) = repository.timestamp { (RelativeTime { timestamp }) } }
                             td {
@@ -161,10 +165,10 @@ impl RepositoriesPage<'_> {
             @if self.repositories.offset > 0 || self.repositories.has_next {
                 ul class=(repositories::PAGER) {
                     @if self.repositories.offset > 0 {
-                        li { a href=(page_url(self.repositories.offset.saturating_sub(50), self.sort_name, self.search)) { "[previous]" } }
+                        li { a href=(page_url(self.repositories.offset.saturating_sub(self.page_size), self.sort_name, self.search)) { "[previous]" } }
                     }
                     @if self.repositories.has_next {
-                        li { a href=(page_url(self.repositories.offset + 50, self.sort_name, self.search)) { "[next]" } }
+                        li { a href=(page_url(self.repositories.offset + self.page_size, self.sort_name, self.search)) { "[next]" } }
                     }
                 }
             }
@@ -172,9 +176,9 @@ impl RepositoriesPage<'_> {
     }
 }
 
-fn description(description: &str) -> String {
+fn description(description: &str, max_chars: usize) -> String {
     let mut characters = description.chars();
-    let shown = characters.by_ref().take(80).collect::<String>();
+    let shown = characters.by_ref().take(max_chars).collect::<String>();
     if characters.next().is_some() {
         format!("{shown}...")
     } else {

@@ -7,11 +7,10 @@ use sha2::Digest;
 use std::sync::atomic::{AtomicU64, Ordering};
 static TEMPORARY_NONCE: AtomicU64 = AtomicU64::new(0);
 
-pub const MAX_OBJECT_SIZE: usize = 1024 * 1024 * 1024;
-
 #[derive(Clone, Debug)]
 pub struct LfsStore {
     objects: std::path::PathBuf,
+    max_object_bytes: u64,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StoreError {
@@ -23,7 +22,11 @@ pub enum StoreError {
 
 impl LfsStore {
     /// Opens a repository-owned LFS store after canonical containment validation.
-    pub fn open(root: &std::path::Path, repo: &str) -> Result<Self, StoreError> {
+    pub fn open(
+        root: &std::path::Path,
+        repo: &str,
+        max_object_bytes: u64,
+    ) -> Result<Self, StoreError> {
         let root = std::fs::canonicalize(root).map_err(|_| StoreError::NotFound)?;
         let repository = std::fs::canonicalize(root.join(format!("{repo}.git")))
             .map_err(|_| StoreError::NotFound)?;
@@ -32,6 +35,7 @@ impl LfsStore {
         }
         Ok(Self {
             objects: repository.join("lfs/objects"),
+            max_object_bytes,
         })
     }
     pub fn present(&self, oid: &str, size: u64) -> Result<bool, StoreError> {
@@ -58,7 +62,7 @@ impl LfsStore {
     }
     /// Verifies the object ID before atomically placing bytes in the store.
     pub fn write(&self, oid: &str, bytes: &[u8]) -> Result<(), StoreError> {
-        if bytes.len() > MAX_OBJECT_SIZE {
+        if u64::try_from(bytes.len()).map_or(true, |length| length > self.max_object_bytes) {
             return Err(StoreError::Storage("object too large".into()));
         }
         if !verify_bytes(oid, bytes) {
@@ -118,7 +122,7 @@ impl LfsStore {
                     break;
                 }
                 total += count as u64;
-                if total > MAX_OBJECT_SIZE as u64 {
+                if total > self.max_object_bytes {
                     return Err(StoreError::Storage("object too large".into()));
                 }
                 hash.update(&bytes[..count]);
@@ -190,7 +194,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         let repo = root.join("x.git");
         std::fs::create_dir_all(&repo).unwrap();
-        let store = super::LfsStore::open(&root, "x").unwrap();
+        let store = super::LfsStore::open(&root, "x", 1024 * 1024).unwrap();
         let bytes = b"contents";
         let oid = format!("{:x}", sha2::Sha256::digest(bytes));
 
@@ -202,6 +206,13 @@ mod tests {
         output.read_to_end(&mut restored).await.unwrap();
         assert_eq!(length, bytes.len() as u64);
         assert_eq!(restored, bytes);
+
+        let limited = super::LfsStore::open(&root, "x", 3).unwrap();
+        let mut oversized = &bytes[..];
+        assert_eq!(
+            limited.write_stream(&oid, &mut oversized).await,
+            Err(super::StoreError::Storage("object too large".into()))
+        );
 
         let bad_oid = "a".repeat(64);
         let mut input = &bytes[..];

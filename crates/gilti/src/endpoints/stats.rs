@@ -13,7 +13,10 @@ pub enum QueryError {
 }
 
 impl Query {
-    pub fn from_request(query: &crate::RequestQuery) -> Result<Self, QueryError> {
+    pub fn from_request(
+        query: &crate::daemon::RequestQuery,
+        browser: &crate::config::ConfigBrowser,
+    ) -> Result<Self, QueryError> {
         let (period, code) = match query.value("GILTI_QUERY_PERIOD") {
             None | Some("w" | "week") => (gilti_git::stats::Period::Week, "w"),
             Some("m" | "month") => (gilti_git::stats::Period::Month, "m"),
@@ -22,7 +25,7 @@ impl Query {
             Some(_) => return Err(QueryError::NotFound),
         };
         let top = match query.value("GILTI_QUERY_OFFSET") {
-            None | Some("0") => Some(10),
+            None | Some("0") => Some(browser.stats_default_authors),
             Some("-1") => None,
             Some(value) => Some(
                 value
@@ -45,10 +48,10 @@ pub async fn serve(
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
     let name = route.repo;
     let model = tokio::task::spawn_blocking(move || {
-        gilti_git::stats::Stats::load(std::path::Path::new(repositories), &name, query.period)
+        gilti_git::stats::Stats::load(repositories.as_path(), &name, query.period)
     })
     .await;
     let model = match model {
@@ -67,7 +70,7 @@ pub async fn serve(
         "HEAD",
         super::shared::Page::Stats,
         super::shared::RenderOptions {
-            sidebar: Some(options_sidebar(&query)),
+            sidebar: Some(options_sidebar(&query, &context.browser)),
             ..Default::default()
         },
         content,
@@ -93,7 +96,10 @@ impl Render for Page<'_> {
     }
 }
 
-fn options_sidebar(query: &crate::endpoints::stats::Query) -> Markup {
+fn options_sidebar(
+    query: &crate::endpoints::stats::Query,
+    browser: &crate::config::ConfigBrowser,
+) -> Markup {
     html! {
         form method="get" aria-label="stat options" {
             strong { "stat options" }
@@ -105,7 +111,7 @@ fn options_sidebar(query: &crate::endpoints::stats::Query) -> Markup {
             }
             label for="stats-authors" { "Authors:" }
             select id="stats-authors" name="ofs" {
-                @for value in [10_usize,25,50,100] {
+                @for value in browser.stats_author_options.iter().copied() {
                     option value=(value) selected[query.top == Some(value)] { (value) }
                 }
                 option value="-1" selected[query.top.is_none()] { "all" }

@@ -9,13 +9,18 @@ pub async fn serve(
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
+    let repositories = std::sync::Arc::clone(&context.repositories);
+    let binary_detection_bytes = usize::try_from(context.browser.binary_detection_bytes.as_u64())
+        .expect("binary detection limit fits usize");
+    let abbreviated_oid_chars = context.browser.abbreviated_oid_chars;
     let model = tokio::task::spawn_blocking(move || {
         gilti_git::blame::Blame::load(
-            std::path::Path::new(repositories),
+            repositories.as_path(),
             &route.repo,
             route.params.rev,
             route.params.path,
+            binary_detection_bytes,
+            abbreviated_oid_chars,
         )
     })
     .await;

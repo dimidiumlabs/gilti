@@ -4,17 +4,17 @@
 pub async fn serve(
     context: &super::shared::Context,
     route: crate::router::RepoRoute<crate::router::Revision>,
-    format: Option<&str>,
+    format: gilti_git::archive::Format,
     method: axum::http::Method,
 ) -> axum::response::Response {
     if method != axum::http::Method::GET && method != axum::http::Method::HEAD {
         return super::method_not_allowed();
     }
-    let repositories = context.repositories;
-    let format = format.unwrap_or("tar.gz").to_owned();
+    let repositories = std::sync::Arc::clone(&context.repositories);
+    let format = format.as_str().to_owned();
     let model = tokio::task::spawn_blocking(move || {
         gilti_git::archive_signature::ArchiveSignature::load(
-            std::path::Path::new(repositories),
+            repositories.as_path(),
             &route.repo,
             route.params,
             &format,
